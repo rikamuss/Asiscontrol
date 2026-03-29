@@ -14,7 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      asistencias: {
+        Row: {
+          created_at: string
+          empleado_id: string
+          estado: string
+          fecha_hora: string
+          foto_url: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          empleado_id: string
+          estado?: string
+          fecha_hora?: string
+          foto_url?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          empleado_id?: string
+          estado?: string
+          fecha_hora?: string
+          foto_url?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asistencias_empleado_id_fkey"
+            columns: ["empleado_id"]
+            isOneToOne: false
+            referencedRelation: "empleados"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      empleados: {
+        Row: {
+          cargo: string
+          cedula: string
+          created_at: string
+          foto_url: string | null
+          id: string
+          nombre: string
+          rfid_key: string | null
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          cargo: string
+          cedula: string
+          created_at?: string
+          foto_url?: string | null
+          id?: string
+          nombre: string
+          rfid_key?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cargo?: string
+          cedula?: string
+          created_at?: string
+          foto_url?: string | null
+          id?: string
+          nombre?: string
+          rfid_key?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scanned_uids: {
+        Row: {
+          created_at: string
+          id: string
+          uid: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          uid: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          uid?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
