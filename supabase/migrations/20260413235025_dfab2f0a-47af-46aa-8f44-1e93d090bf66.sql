@@ -1,0 +1,1 @@
+ALTER TABLE public.scanned_uids ADD COLUMN foto_url text;
