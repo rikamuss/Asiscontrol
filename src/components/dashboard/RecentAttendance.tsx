@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { Trash2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface AttendanceRecord {
   id: string;
