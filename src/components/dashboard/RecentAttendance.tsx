@@ -37,12 +37,22 @@ export default function RecentAttendance() {
     if (data) setRecords(data as unknown as AttendanceRecord[]);
   };
 
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("asistencias").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Registro eliminado" });
+    fetchRecords();
+  };
+
   useEffect(() => {
     fetchRecords();
 
     const channel = supabase
       .channel("realtime-asistencias")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "asistencias" }, () => {
         fetchRecords();
       })
       .subscribe();
