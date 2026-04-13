@@ -165,7 +165,7 @@ export default function Empleados() {
 
   const handleListenUID = async () => {
     setListening(true);
-    toast({ title: "Escuchando...", description: "Pase la tarjeta por el lector ESP32" });
+    toast({ title: "Escuchando...", description: "Pase la tarjeta por el lector ESP32 (tomará foto automáticamente)" });
 
     const startTime = Date.now();
     const interval = setInterval(async () => {
@@ -178,7 +178,7 @@ export default function Empleados() {
 
       const { data } = await supabase
         .from("scanned_uids")
-        .select("uid, created_at")
+        .select("uid, created_at, foto_url")
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -189,7 +189,12 @@ export default function Empleados() {
           clearInterval(interval);
           setListening(false);
           setForm((prev) => ({ ...prev, rfid_key: scanned.uid }));
-          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}` });
+          // If ESP32 sent a photo, use it
+          if (scanned.foto_url) {
+            setPhotoPreview(scanned.foto_url);
+            setPhotoFile(null); // URL already uploaded, no need for file
+          }
+          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}${scanned.foto_url ? " (foto recibida)" : ""}` });
         }
       }
     }, 1000);
