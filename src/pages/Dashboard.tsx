@@ -41,9 +41,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 pt-12 md:pt-0">
-      <div>
-        <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
-        <p className="text-muted-foreground text-sm">Monitoreo en tiempo real de asistencias</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
+          <p className="text-muted-foreground text-sm">Monitoreo en tiempo real de asistencias</p>
+        </div>
+        <ManualAttendance />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
