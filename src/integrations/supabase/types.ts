@@ -88,16 +88,19 @@ export type Database = {
       scanned_uids: {
         Row: {
           created_at: string
+          foto_url: string | null
           id: string
           uid: string
         }
         Insert: {
           created_at?: string
+          foto_url?: string | null
           id?: string
           uid: string
         }
         Update: {
           created_at?: string
+          foto_url?: string | null
           id?: string
           uid?: string
         }

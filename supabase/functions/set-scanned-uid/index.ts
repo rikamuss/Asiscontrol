@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { uid } = await req.json();
+    const { uid, foto } = await req.json();
 
     if (!uid || typeof uid !== "string") {
       return new Response(JSON.stringify({ error: "UID requerido" }), {
@@ -25,7 +25,27 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { error } = await supabase.from("scanned_uids").insert({ uid });
+    let foto_url: string | null = null;
+
+    // Upload photo if provided (base64 from ESP32 camera)
+    if (foto && typeof foto === "string") {
+      const base64Data = foto.replace(/^data:image\/\w+;base64,/, "");
+      const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+      const fileName = `registros/${uid}_${Date.now()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("asistencias")
+        .upload(fileName, binaryData, { contentType: "image/jpeg", upsert: false });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from("asistencias")
+          .getPublicUrl(fileName);
+        foto_url = urlData.publicUrl;
+      }
+    }
+
+    const { error } = await supabase.from("scanned_uids").insert({ uid, foto_url });
 
     if (error) {
       return new Response(JSON.stringify({ error: "Error al guardar UID" }), {
@@ -35,7 +55,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ message: "UID recibido", uid }),
+      JSON.stringify({ message: "UID recibido", uid, foto_url }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

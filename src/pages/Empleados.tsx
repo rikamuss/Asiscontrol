@@ -119,12 +119,20 @@ export default function Empleados() {
       if (photoFile) {
         const url = await uploadPhoto(editing.id);
         if (url) foto_url = url;
+      } else if (photoPreview && photoPreview !== editing.foto_url) {
+        // Photo URL from ESP32 camera (already uploaded)
+        foto_url = photoPreview;
       }
       const { error } = await supabase.from("empleados").update({ ...form, foto_url }).eq("id", editing.id);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Empleado actualizado" });
     } else {
-      const { data: inserted, error } = await supabase.from("empleados").insert(form).select("id").single();
+      // For new employee, check if we have a photo URL from ESP32
+      const insertData: any = { ...form };
+      if (photoPreview && !photoFile) {
+        insertData.foto_url = photoPreview; // ESP32 photo URL
+      }
+      const { data: inserted, error } = await supabase.from("empleados").insert(insertData).select("id").single();
       if (error || !inserted) { toast({ title: "Error", description: error?.message || "Error al registrar", variant: "destructive" }); return; }
       if (photoFile) {
         const url = await uploadPhoto(inserted.id);
@@ -165,7 +173,7 @@ export default function Empleados() {
 
   const handleListenUID = async () => {
     setListening(true);
-    toast({ title: "Escuchando...", description: "Pase la tarjeta por el lector ESP32" });
+    toast({ title: "Escuchando...", description: "Pase la tarjeta por el lector ESP32 (tomará foto automáticamente)" });
 
     const startTime = Date.now();
     const interval = setInterval(async () => {
@@ -178,7 +186,7 @@ export default function Empleados() {
 
       const { data } = await supabase
         .from("scanned_uids")
-        .select("uid, created_at")
+        .select("uid, created_at, foto_url")
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -189,7 +197,12 @@ export default function Empleados() {
           clearInterval(interval);
           setListening(false);
           setForm((prev) => ({ ...prev, rfid_key: scanned.uid }));
-          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}` });
+          // If ESP32 sent a photo, use it
+          if (scanned.foto_url) {
+            setPhotoPreview(scanned.foto_url);
+            setPhotoFile(null); // URL already uploaded, no need for file
+          }
+          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}${scanned.foto_url ? " (foto recibida)" : ""}` });
         }
       }
     }, 1000);
