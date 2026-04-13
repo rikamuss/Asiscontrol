@@ -100,6 +100,8 @@ export default function RecentAttendance() {
                 <Trash2 size={14} />
               </button>
             </div>
+          </div>
+        ))}
       </div>
     </div>
   );
