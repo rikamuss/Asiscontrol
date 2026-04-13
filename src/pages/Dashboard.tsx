@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import StatCard from "@/components/dashboard/StatCard";
 import RecentAttendance from "@/components/dashboard/RecentAttendance";
+import ManualAttendance from "@/components/dashboard/ManualAttendance";
 import { Users, CheckCircle, Clock, XCircle } from "lucide-react";
 
 export default function Dashboard() {
