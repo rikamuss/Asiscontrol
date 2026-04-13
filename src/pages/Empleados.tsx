@@ -119,12 +119,20 @@ export default function Empleados() {
       if (photoFile) {
         const url = await uploadPhoto(editing.id);
         if (url) foto_url = url;
+      } else if (photoPreview && photoPreview !== editing.foto_url) {
+        // Photo URL from ESP32 camera (already uploaded)
+        foto_url = photoPreview;
       }
       const { error } = await supabase.from("empleados").update({ ...form, foto_url }).eq("id", editing.id);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
       toast({ title: "Empleado actualizado" });
     } else {
-      const { data: inserted, error } = await supabase.from("empleados").insert(form).select("id").single();
+      // For new employee, check if we have a photo URL from ESP32
+      const insertData: any = { ...form };
+      if (photoPreview && !photoFile) {
+        insertData.foto_url = photoPreview; // ESP32 photo URL
+      }
+      const { data: inserted, error } = await supabase.from("empleados").insert(insertData).select("id").single();
       if (error || !inserted) { toast({ title: "Error", description: error?.message || "Error al registrar", variant: "destructive" }); return; }
       if (photoFile) {
         const url = await uploadPhoto(inserted.id);
