@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { Trash2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface AttendanceRecord {
   id: string;
@@ -35,12 +37,22 @@ export default function RecentAttendance() {
     if (data) setRecords(data as unknown as AttendanceRecord[]);
   };
 
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("asistencias").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Registro eliminado" });
+    fetchRecords();
+  };
+
   useEffect(() => {
     fetchRecords();
 
     const channel = supabase
       .channel("realtime-asistencias")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "asistencias" }, () => {
         fetchRecords();
       })
       .subscribe();
@@ -71,13 +83,22 @@ export default function RecentAttendance() {
               <p className="text-sm font-medium text-foreground truncate">{r.empleados?.nombre || "Desconocido"}</p>
               <p className="text-xs text-muted-foreground">{r.empleados?.cargo}</p>
             </div>
-            <div className="text-right space-y-1">
-              <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
-                {r.estado}
-              </span>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
-              </p>
+            <div className="text-right space-y-1 flex items-center gap-2">
+              <div>
+                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
+                  {r.estado}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(r.id)}
+                className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                title="Eliminar registro"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
           </div>
         ))}
