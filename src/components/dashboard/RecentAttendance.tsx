@@ -83,16 +83,23 @@ export default function RecentAttendance() {
               <p className="text-sm font-medium text-foreground truncate">{r.empleados?.nombre || "Desconocido"}</p>
               <p className="text-xs text-muted-foreground">{r.empleados?.cargo}</p>
             </div>
-            <div className="text-right space-y-1">
-              <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
-                {r.estado}
-              </span>
-              <p className="text-xs text-muted-foreground">
-                {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
-              </p>
+            <div className="text-right space-y-1 flex items-center gap-2">
+              <div>
+                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
+                  {r.estado}
+                </span>
+                <p className="text-xs text-muted-foreground">
+                  {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(r.id)}
+                className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                title="Eliminar registro"
+              >
+                <Trash2 size={14} />
+              </button>
             </div>
-          </div>
-        ))}
       </div>
     </div>
   );
