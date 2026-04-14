@@ -95,13 +95,30 @@ export default function RecentAttendance() {
                   {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
                 </p>
               </div>
-              <button
-                onClick={() => handleDelete(r.id)}
-                className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                title="Eliminar registro"
-              >
-                <Trash2 size={14} />
-              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Eliminar registro"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se eliminará el registro de asistencia de {r.empleados?.nombre || "este empleado"}. Esta acción no se puede deshacer.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleDelete(r.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         ))}
