@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit, Trash2, CreditCard, Search, Camera, Upload, X } from "lucide-react";
+import { Plus, Edit, Trash2, CreditCard, Search, Camera, Upload, X, Cpu } from "lucide-react";
 
 interface Empleado {
   id: string;
@@ -24,6 +24,7 @@ export default function Empleados() {
   const [editing, setEditing] = useState<Empleado | null>(null);
   const [form, setForm] = useState({ nombre: "", cedula: "", cargo: "", telefono: "", rfid_key: "" });
   const [listening, setListening] = useState(false);
+  const [requestingPhoto, setRequestingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -173,7 +174,7 @@ export default function Empleados() {
 
   const handleListenUID = async () => {
     setListening(true);
-    toast({ title: "Escuchando...", description: "Pase la tarjeta por el lector ESP32 (tomará foto automáticamente)" });
+    toast({ title: "Escuchando RFID...", description: "Pase la tarjeta por el lector ESP32" });
 
     const startTime = Date.now();
     const interval = setInterval(async () => {
@@ -186,7 +187,7 @@ export default function Empleados() {
 
       const { data } = await supabase
         .from("scanned_uids")
-        .select("uid, created_at, foto_url")
+        .select("uid, created_at")
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -197,13 +198,45 @@ export default function Empleados() {
           clearInterval(interval);
           setListening(false);
           setForm((prev) => ({ ...prev, rfid_key: scanned.uid }));
-          // If ESP32 sent a photo, use it
-          if (scanned.foto_url) {
-            setPhotoPreview(scanned.foto_url);
-            setPhotoFile(null); // URL already uploaded, no need for file
-          }
-          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}${scanned.foto_url ? " (foto recibida)" : ""}` });
+          toast({ title: "Tarjeta detectada", description: `UID: ${scanned.uid}` });
         }
+      }
+    }, 1000);
+  };
+
+  const handleRequestPhotoFromESP32 = async () => {
+    setRequestingPhoto(true);
+    toast({ title: "Solicitando foto...", description: "El ESP32 tomará la foto en unos segundos" });
+
+    const { data: req, error: reqErr } = await supabase.functions.invoke("request-photo");
+    if (reqErr || !req?.request_id) {
+      setRequestingPhoto(false);
+      toast({ title: "Error", description: "No se pudo solicitar la foto", variant: "destructive" });
+      return;
+    }
+
+    const requestId = req.request_id;
+    const startTime = Date.now();
+    const interval = setInterval(async () => {
+      if (Date.now() - startTime > 20000) {
+        clearInterval(interval);
+        setRequestingPhoto(false);
+        toast({ title: "Tiempo agotado", description: "El ESP32 no respondió", variant: "destructive" });
+        return;
+      }
+
+      const { data } = await supabase
+        .from("foto_requests")
+        .select("status, foto_url")
+        .eq("id", requestId)
+        .maybeSingle();
+
+      if (data?.status === "done" && data.foto_url) {
+        clearInterval(interval);
+        setRequestingPhoto(false);
+        setPhotoPreview(data.foto_url);
+        setPhotoFile(null);
+        toast({ title: "Foto recibida del ESP32" });
       }
     }, 1000);
   };
@@ -255,12 +288,15 @@ export default function Empleados() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" onClick={startCamera} className="border-border">
                         <Camera size={16} className="mr-2" /> Cámara
                       </Button>
                       <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="border-border">
                         <Upload size={16} className="mr-2" /> Subir archivo
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleRequestPhotoFromESP32} disabled={requestingPhoto} className="border-border">
+                        <Cpu size={16} className="mr-2" /> {requestingPhoto ? "Esperando ESP32..." : "Foto desde ESP32"}
                       </Button>
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                     </div>

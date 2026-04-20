@@ -85,6 +85,30 @@ export type Database = {
         }
         Relationships: []
       }
+      foto_requests: {
+        Row: {
+          created_at: string
+          foto_url: string | null
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          foto_url?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          foto_url?: string | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scanned_uids: {
         Row: {
           created_at: string
