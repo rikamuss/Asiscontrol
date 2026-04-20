@@ -288,12 +288,15 @@ export default function Empleados() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" onClick={startCamera} className="border-border">
                         <Camera size={16} className="mr-2" /> Cámara
                       </Button>
                       <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} className="border-border">
                         <Upload size={16} className="mr-2" /> Subir archivo
+                      </Button>
+                      <Button type="button" variant="outline" onClick={handleRequestPhotoFromESP32} disabled={requestingPhoto} className="border-border">
+                        <Cpu size={16} className="mr-2" /> {requestingPhoto ? "Esperando ESP32..." : "Foto desde ESP32"}
                       </Button>
                       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
                     </div>
