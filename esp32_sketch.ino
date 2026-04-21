@@ -129,7 +129,7 @@ bool initCamera() {
   config.pin_sccb_scl = SIOC_GPIO_NUM;
   config.pin_pwdn     = PWDN_GPIO_NUM;
   config.pin_reset    = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
+  config.xclk_freq_hz = 10000000;   // 10 MHz: más estable en arranque
   config.frame_size   = FRAMESIZE_VGA;
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode    = CAMERA_GRAB_LATEST;
@@ -137,9 +137,17 @@ bool initCamera() {
   config.jpeg_quality = 12;
   config.fb_count     = psramFound() ? 2 : 1;
 
-  esp_err_t err = esp_camera_init(&config);
+  // Reintento: a veces el primer init falla por timing
+  esp_err_t err = ESP_FAIL;
+  for (int i = 0; i < 3; i++) {
+    err = esp_camera_init(&config);
+    if (err == ESP_OK) break;
+    Serial.printf("Camara intento %d FALLO: 0x%x\n", i + 1, err);
+    esp_camera_deinit();
+    delay(500);
+  }
   if (err != ESP_OK) {
-    Serial.printf("Camara FALLO: 0x%x\n", err);
+    Serial.printf("Camara FALLO definitivo: 0x%x\n", err);
     return false;
   }
   Serial.println("Camara OK");
