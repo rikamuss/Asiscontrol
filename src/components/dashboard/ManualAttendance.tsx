@@ -96,6 +96,28 @@ export default function ManualAttendance() {
               </SelectContent>
             </Select>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-muted-foreground">Tipo</Label>
+              <Select value={tipo} onValueChange={(v) => setTipo(v as "entrada" | "salida")}>
+                <SelectTrigger className="bg-muted border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="entrada">Entrada</SelectItem>
+                  <SelectItem value="salida">Salida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-muted-foreground">Jornada</Label>
+              <Select value={jornada} onValueChange={(v) => setJornada(v as "manana" | "tarde")}>
+                <SelectTrigger className="bg-muted border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="manana">Mañana (7–12)</SelectItem>
+                  <SelectItem value="tarde">Tarde (13–18)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div>
             <Label className="text-muted-foreground">Estado</Label>
             <Select value={estado} onValueChange={setEstado}>
@@ -103,11 +125,17 @@ export default function ManualAttendance() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="presente">Presente</SelectItem>
+                <SelectItem value="presente">Entrada a tiempo</SelectItem>
                 <SelectItem value="retardo">Retardo</SelectItem>
+                <SelectItem value="salida">Salida a tiempo</SelectItem>
+                <SelectItem value="salida_temprana">Salida temprana</SelectItem>
                 <SelectItem value="falta">Falta</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Minutos de desviación</Label>
+            <Input type="number" min={0} value={minutosDesv} onChange={(e) => setMinutosDesv(Number(e.target.value))} className="bg-muted border-border" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
