@@ -50,6 +50,9 @@ export default function ManualAttendance() {
     const { error } = await supabase.from("asistencias").insert({
       empleado_id: empleadoId,
       estado,
+      tipo,
+      jornada,
+      minutos_desviacion: minutosDesv,
       fecha_hora: fechaHora,
     });
 
