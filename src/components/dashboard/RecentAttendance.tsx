@@ -13,14 +13,27 @@ interface AttendanceRecord {
   id: string;
   fecha_hora: string;
   estado: string;
+  tipo: string | null;
+  jornada: string | null;
+  minutos_desviacion: number | null;
   foto_url: string | null;
   empleados: { nombre: string; cargo: string } | null;
 }
 
 const estadoBadge: Record<string, string> = {
   presente: "bg-success/10 text-success border-success/20",
+  salida: "bg-primary/10 text-primary border-primary/20",
   retardo: "bg-warning/10 text-warning border-warning/20",
+  salida_temprana: "bg-warning/10 text-warning border-warning/20",
   falta: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+const estadoLabel: Record<string, string> = {
+  presente: "Entrada",
+  salida: "Salida",
+  retardo: "Retardo",
+  salida_temprana: "Salida temprana",
+  falta: "Falta",
 };
 
 export default function RecentAttendance() {
