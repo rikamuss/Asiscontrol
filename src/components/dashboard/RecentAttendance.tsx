@@ -45,7 +45,7 @@ export default function RecentAttendance() {
 
     const { data } = await supabase
       .from("asistencias")
-      .select("id, fecha_hora, estado, foto_url, empleados(nombre, cargo)")
+      .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleados(nombre, cargo)")
       .gte("fecha_hora", today.toISOString())
       .order("fecha_hora", { ascending: false })
       .limit(20);
