@@ -13,14 +13,27 @@ interface AttendanceRecord {
   id: string;
   fecha_hora: string;
   estado: string;
+  tipo: string | null;
+  jornada: string | null;
+  minutos_desviacion: number | null;
   foto_url: string | null;
   empleados: { nombre: string; cargo: string } | null;
 }
 
 const estadoBadge: Record<string, string> = {
   presente: "bg-success/10 text-success border-success/20",
+  salida: "bg-primary/10 text-primary border-primary/20",
   retardo: "bg-warning/10 text-warning border-warning/20",
+  salida_temprana: "bg-warning/10 text-warning border-warning/20",
   falta: "bg-destructive/10 text-destructive border-destructive/20",
+};
+
+const estadoLabel: Record<string, string> = {
+  presente: "Entrada",
+  salida: "Salida",
+  retardo: "Retardo",
+  salida_temprana: "Salida temprana",
+  falta: "Falta",
 };
 
 export default function RecentAttendance() {
@@ -32,7 +45,7 @@ export default function RecentAttendance() {
 
     const { data } = await supabase
       .from("asistencias")
-      .select("id, fecha_hora, estado, foto_url, empleados(nombre, cargo)")
+      .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleados(nombre, cargo)")
       .gte("fecha_hora", today.toISOString())
       .order("fecha_hora", { ascending: false })
       .limit(20);
@@ -88,11 +101,12 @@ export default function RecentAttendance() {
             </div>
             <div className="text-right space-y-1 flex items-center gap-2">
               <div>
-                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
-                  {r.estado}
+                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || "bg-muted text-muted-foreground border-border"}`}>
+                  {estadoLabel[r.estado] || r.estado}
+                  {r.minutos_desviacion ? ` · ${r.minutos_desviacion}m` : ""}
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
+                  {r.jornada === "manana" ? "Mañana" : r.jornada === "tarde" ? "Tarde" : ""} · {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
                 </p>
               </div>
               <AlertDialog>
