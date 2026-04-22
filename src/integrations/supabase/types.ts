@@ -22,6 +22,9 @@ export type Database = {
           fecha_hora: string
           foto_url: string | null
           id: string
+          jornada: string | null
+          minutos_desviacion: number
+          tipo: string
         }
         Insert: {
           created_at?: string
@@ -30,6 +33,9 @@ export type Database = {
           fecha_hora?: string
           foto_url?: string | null
           id?: string
+          jornada?: string | null
+          minutos_desviacion?: number
+          tipo?: string
         }
         Update: {
           created_at?: string
@@ -38,6 +44,9 @@ export type Database = {
           fecha_hora?: string
           foto_url?: string | null
           id?: string
+          jornada?: string | null
+          minutos_desviacion?: number
+          tipo?: string
         }
         Relationships: [
           {
