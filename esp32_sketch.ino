@@ -83,22 +83,53 @@ void httpAddSupabaseHeaders(HTTPClient& http) {
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON);
 }
 
-// ============== ENVIAR UID ==============
+// ============== ENVIAR UID (con foto si hay cámara) ==============
 void enviarUID(const String& uid) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Sin WiFi, no se envía UID");
     return;
   }
 
+  String fotoB64 = "";
+
+#ifdef USE_CAMERA
+  // Capturar foto en el momento del pase
+  // Descartar 1-2 frames viejos para obtener imagen actual
+  camera_fb_t* fb = esp_camera_fb_get();
+  if (fb) { esp_camera_fb_return(fb); fb = nullptr; }
+  fb = esp_camera_fb_get();
+  if (fb) {
+    size_t outLen = 0;
+    mbedtls_base64_encode(NULL, 0, &outLen, fb->buf, fb->len);
+    unsigned char* b64 = (unsigned char*)malloc(outLen + 1);
+    if (b64) {
+      mbedtls_base64_encode(b64, outLen, &outLen, fb->buf, fb->len);
+      b64[outLen] = 0;
+      fotoB64 = String("data:image/jpeg;base64,") + (char*)b64;
+      free(b64);
+      Serial.printf("Foto capturada (%u bytes)\n", (unsigned)fb->len);
+    }
+    esp_camera_fb_return(fb);
+  } else {
+    Serial.println("No se pudo capturar foto");
+  }
+#endif
+
   HTTPClient http;
-  http.setTimeout(8000);
+  http.setTimeout(20000);
   if (!http.begin(secureClient, URL_SET_UID)) {
     Serial.println("http.begin FALLO (set-scanned-uid)");
     return;
   }
   httpAddSupabaseHeaders(http);
 
-  String body = "{\"uid\":\"" + uid + "\"}";
+  // Construir body por partes para no duplicar el string grande
+  String body = "{\"uid\":\"" + uid + "\"";
+  if (fotoB64.length() > 0) {
+    body += ",\"foto\":\"" + fotoB64 + "\"";
+  }
+  body += "}";
+
   int code = http.POST(body);
   Serial.printf("POST UID -> %d\n", code);
   if (code > 0) {
