@@ -48,14 +48,31 @@ Deno.serve(async (req) => {
     const { error } = await supabase.from("scanned_uids").insert({ uid, foto_url });
 
     if (error) {
-      return new Response(JSON.stringify({ error: "Error al guardar UID" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Error guardando scanned_uid:", error);
+    }
+
+    // Intentar registrar asistencia automáticamente
+    let asistenciaResult: any = null;
+    try {
+      const asistResp = await fetch(
+        `${Deno.env.get("SUPABASE_URL")}/functions/v1/registrarAsistencia`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ uid, foto }),
+        }
+      );
+      asistenciaResult = await asistResp.json();
+      console.log("Resultado registrarAsistencia:", asistResp.status, asistenciaResult);
+    } catch (e) {
+      console.error("Error llamando registrarAsistencia:", e);
     }
 
     return new Response(
-      JSON.stringify({ message: "UID recibido", uid, foto_url }),
+      JSON.stringify({ message: "UID recibido", uid, foto_url, asistencia: asistenciaResult }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
