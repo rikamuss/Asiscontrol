@@ -18,7 +18,10 @@ export default function ManualAttendance() {
   const [open, setOpen] = useState(false);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empleadoId, setEmpleadoId] = useState("");
+  const [tipo, setTipo] = useState<"entrada" | "salida">("entrada");
+  const [jornada, setJornada] = useState<"manana" | "tarde">("manana");
   const [estado, setEstado] = useState("presente");
+  const [minutosDesv, setMinutosDesv] = useState(0);
   const [hora, setHora] = useState("");
   const [fecha, setFecha] = useState("");
   const [saving, setSaving] = useState(false);
