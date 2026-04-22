@@ -101,11 +101,12 @@ export default function RecentAttendance() {
             </div>
             <div className="text-right space-y-1 flex items-center gap-2">
               <div>
-                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || ""}`}>
-                  {r.estado}
+                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || "bg-muted text-muted-foreground border-border"}`}>
+                  {estadoLabel[r.estado] || r.estado}
+                  {r.minutos_desviacion ? ` · ${r.minutos_desviacion}m` : ""}
                 </span>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
+                  {r.jornada === "manana" ? "Mañana" : r.jornada === "tarde" ? "Tarde" : ""} · {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
                 </p>
               </div>
               <AlertDialog>
