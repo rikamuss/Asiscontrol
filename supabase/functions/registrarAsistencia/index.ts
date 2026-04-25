@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { uid, foto } = await req.json();
+    const { uid, foto, foto_url: foto_url_recibida } = await req.json();
     if (!uid) {
       return new Response(JSON.stringify({ error: "UID requerido" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -104,9 +104,11 @@ Deno.serve(async (req) => {
       minutos_desviacion = Math.max(0, cfg.fin - minAhora);
     }
 
-    // Subir foto si viene
-    let foto_url: string | null = null;
-    if (foto) {
+    // Si ya viene una URL procesada (desde set-scanned-uid), usarla directamente
+    let foto_url: string | null = foto_url_recibida || null;
+
+    // Solo subir si viene base64 y no hay URL ya procesada
+    if (foto && !foto_url) {
       const base64Data = foto.replace(/^data:image\/\w+;base64,/, "");
       const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
       const fileName = `${empleado.id}/${Date.now()}.jpg`;
