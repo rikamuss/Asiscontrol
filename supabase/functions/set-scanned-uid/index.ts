@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       const { data: emp } = await supabase
         .from("empleados")
         .select("id")
-        .eq("rfid_uid", uid)
+        .eq("rfid_key", uid)
         .maybeSingle();
 
       if (emp?.id) {

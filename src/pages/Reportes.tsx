@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Download, Search } from "lucide-react";
-import { format, subDays, startOfDay, endOfDay } from "date-fns";
+import { addDays, format, subDays, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
 
@@ -24,11 +24,14 @@ export default function Reportes() {
   const [chartData, setChartData] = useState<any[]>([]);
 
   const fetchRecords = async () => {
+    const fromDate = startOfDay(new Date(`${dateFrom}T00:00:00`));
+    const toDateExclusive = startOfDay(addDays(new Date(`${dateTo}T00:00:00`), 1));
+
     const { data } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, estado, foto_url, empleados(nombre, cedula, cargo)")
-      .gte("fecha_hora", startOfDay(new Date(dateFrom)).toISOString())
-      .lte("fecha_hora", endOfDay(new Date(dateTo)).toISOString())
+      .gte("fecha_hora", fromDate.toISOString())
+      .lt("fecha_hora", toDateExclusive.toISOString())
       .order("fecha_hora", { ascending: false });
 
     if (data) {
