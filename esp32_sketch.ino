@@ -5,7 +5,9 @@
  * - Cámara OV2640
  *
  * Funciones:
- *  1. Envía UID + foto al endpoint set-scanned-uid cuando se pasa una tarjeta
+ *  1. Envía UID al endpoint set-scanned-uid cuando se pasa una tarjeta
+ *     y, justo después, captura una foto y la sube al MISMO endpoint
+ *     con el UID, para que el backend la enlace a la asistencia.
  *  2. Hace polling a check-photo-request y sube foto cuando la web la solicita
  */
 
@@ -80,6 +82,7 @@ void enviarUID(const String& uid);
 #ifdef USE_CAMERA
 void initCamera();
 void checkPhotoRequest();
+void capturarYEnviarFotoPase(const String& uid);
 String base64Encode(const uint8_t* data, size_t len);
 #endif
 
@@ -266,11 +269,19 @@ void loop() {
       lcd.print(uid.length() > 16 ? uid.substring(0, 16) : uid);
     }
 
+    // 1) Enviar UID (como antes, sin foto -> esto siempre funciona)
     enviarUID(uid);
 
     mfrc522.PICC_HaltA();
     mfrc522.PCD_StopCrypto1();
-    delay(2000);
+
+#ifdef USE_CAMERA
+    // 2) Capturar foto y enviarla al MISMO endpoint con el UID,
+    //    el backend la enlazará a la asistencia recién creada.
+    capturarYEnviarFotoPase(uid);
+#endif
+
+    delay(1500);
 
     if (lcdOK) {
       lcd.clear();
@@ -290,15 +301,34 @@ void loop() {
 }
 
 // =======================================================
-//  ENVIAR UID (con foto si hay cámara)
+//  ENVIAR UID (sin foto, igual que el sketch original)
 // =======================================================
 void enviarUID(const String& uid) {
   if (!wifiOK) return;
 
-  String fotoField = "";
+  WiFiClientSecure client;
+  client.setInsecure();
+  HTTPClient http;
+  http.begin(client, URL_SET_UID);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+
+  String body = "{\"uid\":\"" + uid + "\"}";
+  int code = http.POST(body);
+  Serial.printf("POST UID -> %d\n", code);
+  http.end();
+}
 
 #ifdef USE_CAMERA
-  // Descartar frames viejos del buffer
+// =======================================================
+//  CAPTURAR FOTO Y ENVIARLA CON EL UID
+//  (usa la misma secuencia que ya funciona en checkPhotoRequest)
+// =======================================================
+void capturarYEnviarFotoPase(const String& uid) {
+  if (!wifiOK) return;
+
+  // Descartar frames viejos del buffer (igual que checkPhotoRequest)
   for (int i = 0; i < 3; i++) {
     camera_fb_t* tmp = esp_camera_fb_get();
     if (tmp) {
@@ -307,17 +337,15 @@ void enviarUID(const String& uid) {
     }
   }
 
-  // Capturar frame real
   camera_fb_t* fb = esp_camera_fb_get();
-  if (fb) {
-    Serial.printf("Foto pase: %zu bytes\n", fb->len);
-    String b64 = base64Encode(fb->buf, fb->len);
-    esp_camera_fb_return(fb);
-    fotoField = ",\"foto\":\"data:image/jpeg;base64," + b64 + "\"";
-  } else {
-    Serial.println("No se pudo capturar foto en pase");
+  if (!fb) {
+    Serial.println("Captura foto pase fallo");
+    return;
   }
-#endif
+
+  Serial.printf("Foto pase: %zu bytes\n", fb->len);
+  String b64 = base64Encode(fb->buf, fb->len);
+  esp_camera_fb_return(fb);
 
   WiFiClientSecure client;
   client.setInsecure();
@@ -328,13 +356,12 @@ void enviarUID(const String& uid) {
   http.addHeader("apikey", SUPABASE_ANON_KEY);
   http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
 
-  String body = "{\"uid\":\"" + uid + "\"" + fotoField + "}";
+  String body = "{\"uid\":\"" + uid + "\",\"foto\":\"data:image/jpeg;base64," + b64 + "\",\"solo_foto\":true}";
   int code = http.POST(body);
-  Serial.printf("POST UID -> %d\n", code);
+  Serial.printf("POST foto pase -> %d\n", code);
   http.end();
 }
 
-#ifdef USE_CAMERA
 // =======================================================
 //  CÁMARA - INICIALIZACIÓN
 // =======================================================
@@ -366,7 +393,7 @@ void initCamera() {
   config.pin_reset     = RESET_GPIO_NUM;
   config.xclk_freq_hz  = 20000000;
   config.pixel_format  = PIXFORMAT_JPEG;
-  config.frame_size    = FRAMESIZE_SVGA;  // 800x600
+  config.frame_size    = FRAMESIZE_SVGA;
   config.jpeg_quality  = 12;
   config.fb_count      = 1;
   config.grab_mode     = CAMERA_GRAB_WHEN_EMPTY;
