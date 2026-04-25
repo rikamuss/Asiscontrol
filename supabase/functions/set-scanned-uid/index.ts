@@ -5,6 +5,41 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function adjuntarFotoAUltimaAsistencia(supabase: any, uid: string, foto_url: string) {
+  const { data: emp } = await supabase
+    .from("empleados")
+    .select("id")
+    .eq("rfid_key", uid)
+    .maybeSingle();
+
+  if (!emp?.id) return null;
+
+  const desde = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const { data: ult } = await supabase
+    .from("asistencias")
+    .select("id")
+    .eq("empleado_id", emp.id)
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!ult?.id) return null;
+
+  const { error } = await supabase
+    .from("asistencias")
+    .update({ foto_url })
+    .eq("id", ult.id);
+
+  if (error) {
+    console.error("Error adjuntando foto a asistencia:", error);
+    return null;
+  }
+
+  console.log("Foto adjuntada a asistencia:", ult.id);
+  return ult.id;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -55,38 +90,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Buscar empleado por UID
-      const { data: emp } = await supabase
-        .from("empleados")
-        .select("id")
-        .eq("rfid_key", uid)
-        .maybeSingle();
-
-      if (emp?.id) {
-        // Buscar la asistencia más reciente (últimos 2 minutos) sin foto o con cualquier foto
-        const desde = new Date(Date.now() - 2 * 60 * 1000).toISOString();
-        const { data: ult } = await supabase
-          .from("asistencias")
-          .select("id")
-          .eq("empleado_id", emp.id)
-          .gte("created_at", desde)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (ult?.id) {
-          await supabase
-            .from("asistencias")
-            .update({ foto_url })
-            .eq("id", ult.id);
-          console.log("Foto adjuntada a asistencia:", ult.id);
-        } else {
-          console.log("No se encontró asistencia reciente para uid:", uid);
-        }
-      }
+      const asistencia_id = await adjuntarFotoAUltimaAsistencia(supabase, uid, foto_url);
+      if (!asistencia_id) console.log("No se encontró asistencia reciente para uid:", uid);
 
       return new Response(
-        JSON.stringify({ message: "Foto procesada", foto_url }),
+        JSON.stringify({ message: "Foto procesada", foto_url, asistencia_id }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -116,8 +124,12 @@ Deno.serve(async (req) => {
       console.error("Error llamando registrarAsistencia:", e);
     }
 
+    const asistencia_id = foto_url
+      ? await adjuntarFotoAUltimaAsistencia(supabase, uid, foto_url)
+      : null;
+
     return new Response(
-      JSON.stringify({ message: "UID recibido", uid, foto_url, asistencia: asistenciaResult }),
+      JSON.stringify({ message: "UID recibido", uid, foto_url, asistencia: asistenciaResult, asistencia_id }),
       { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
