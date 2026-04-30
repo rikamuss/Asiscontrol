@@ -48,7 +48,44 @@ export default function ManualAttendance() {
     }
 
     setSaving(true);
-    const fechaHora = new Date(`${fecha}T${hora}:00`).toISOString();
+
+    // Construir fecha/hora local del registro
+    const fechaHoraDate = new Date(`${fecha}T${hora}:00`);
+    const fechaHora = fechaHoraDate.toISOString();
+
+    // Rango del día local seleccionado (00:00 a 24:00 local)
+    const startLocal = new Date(`${fecha}T00:00:00`);
+    const endLocal = new Date(startLocal);
+    endLocal.setDate(endLocal.getDate() + 1);
+
+    // Verificar duplicados: mismo empleado, jornada y tipo dentro del mismo día local.
+    // Traemos un rango ampliado y filtramos por día local en JS para evitar desfases UTC.
+    const startExpanded = new Date(startLocal); startExpanded.setDate(startExpanded.getDate() - 1);
+    const endExpanded = new Date(endLocal); endExpanded.setDate(endExpanded.getDate() + 1);
+
+    const { data: existentes } = await supabase
+      .from("asistencias")
+      .select("id, fecha_hora, jornada, tipo")
+      .eq("empleado_id", empleadoId)
+      .eq("jornada", jornada)
+      .eq("tipo", tipo)
+      .gte("fecha_hora", startExpanded.toISOString())
+      .lt("fecha_hora", endExpanded.toISOString());
+
+    const duplicado = (existentes || []).some((r) => {
+      const d = new Date(r.fecha_hora);
+      return d >= startLocal && d < endLocal;
+    });
+
+    if (duplicado) {
+      setSaving(false);
+      toast({
+        title: "Registro duplicado",
+        description: `Ya existe una ${tipo} de la jornada ${jornada === "manana" ? "mañana" : "tarde"} para este empleado en esa fecha.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     const { error } = await supabase.from("asistencias").insert({
       empleado_id: empleadoId,
