@@ -17,7 +17,7 @@ async function adjuntarFotoAUltimaAsistencia(supabase: any, uid: string, foto_ur
   const desde = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data: ult } = await supabase
     .from("asistencias")
-    .select("id")
+    .select("id, foto_url")
     .eq("empleado_id", emp.id)
     .gte("created_at", desde)
     .order("created_at", { ascending: false })
@@ -25,6 +25,12 @@ async function adjuntarFotoAUltimaAsistencia(supabase: any, uid: string, foto_ur
     .maybeSingle();
 
   if (!ult?.id) return null;
+
+  // No sobreescribir foto si ya existe (la foto del registro es inmutable)
+  if (ult.foto_url) {
+    console.log("Asistencia ya tiene foto, no se sobreescribe:", ult.id);
+    return ult.id;
+  }
 
   const { error } = await supabase
     .from("asistencias")
