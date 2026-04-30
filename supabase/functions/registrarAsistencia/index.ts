@@ -52,6 +52,16 @@ Deno.serve(async (req) => {
     }
 
     const ahora = new Date();
+
+    // Validar día de la semana: solo lunes (1) a sábado (6). Domingo = 0.
+    const diaSemana = ahora.getDay();
+    if (diaSemana === 0) {
+      return new Response(JSON.stringify({
+        error: "Día no laborable",
+        detalle: "Los registros solo se permiten de lunes a sábado",
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const minAhora = minutosDelDia(ahora);
     const jornada = detectarJornada(minAhora);
 
