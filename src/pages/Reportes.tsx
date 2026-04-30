@@ -124,22 +124,55 @@ export default function Reportes() {
         </div>
       </div>
 
+      {/* Tarjetas resumen */}
+      {filtered.length > 0 && (() => {
+        const total = filtered.length;
+        const aTiempo = filtered.filter((r) => r.estado === "presente" || r.estado === "salida").length;
+        const retardos = filtered.filter((r) => r.estado === "retardo").length;
+        const salidasTemp = filtered.filter((r) => r.estado === "salida_temprana").length;
+        const faltas = filtered.filter((r) => r.estado === "falta").length;
+        const cards = [
+          { label: "Total de pases", value: total, color: "text-foreground", bg: "bg-muted/40" },
+          { label: "A tiempo", value: aTiempo, color: "text-success", bg: "bg-success/10" },
+          { label: "Retardos", value: retardos, color: "text-warning", bg: "bg-warning/10" },
+          { label: "Salidas tempranas", value: salidasTemp, color: "text-warning", bg: "bg-warning/10" },
+          { label: "Faltas", value: faltas, color: "text-destructive", bg: "bg-destructive/10" },
+        ];
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {cards.map((c) => (
+              <div key={c.label} className={`glass-card p-4 ${c.bg}`}>
+                <p className="text-xs text-muted-foreground">{c.label}</p>
+                <p className={`text-2xl font-bold mt-1 ${c.color}`}>{c.value}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Chart */}
       {chartData.length > 0 && (
         <div className="glass-card p-6">
-          <h3 className="font-semibold text-foreground mb-4">Asistencias por Día</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
+          <div className="mb-4">
+            <h3 className="font-semibold text-foreground">Pases por día</h3>
+            <p className="text-xs text-muted-foreground">
+              Cada barra muestra cuántos pases de tarjeta se registraron ese día, agrupados por categoría.
+            </p>
+          </div>
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(217 33% 20%)" />
               <XAxis dataKey="dia" stroke="hsl(215 20% 55%)" fontSize={12} />
-              <YAxis stroke="hsl(215 20% 55%)" fontSize={12} />
+              <YAxis stroke="hsl(215 20% 55%)" fontSize={12} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: "hsl(222 47% 9%)", border: "1px solid hsl(217 33% 20%)", borderRadius: "8px", color: "hsl(210 40% 96%)" }}
+                labelFormatter={(label) => `Día ${label}`}
               />
-              <Legend />
-              <Bar dataKey="presente" fill="hsl(142 76% 45%)" name="Presentes" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="retardo" fill="hsl(38 92% 50%)" name="Retardos" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="falta" fill="hsl(0 84% 60%)" name="Faltas" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: "12px" }} />
+              <Bar stackId="pases" dataKey="aTiempo" fill="hsl(142 76% 45%)" name="A tiempo" radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="retardo" fill="hsl(38 92% 50%)" name="Retardos" radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="salidaTemprana" fill="hsl(25 95% 55%)" name="Salidas tempranas" radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="falta" fill="hsl(0 84% 60%)" name="Faltas" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
