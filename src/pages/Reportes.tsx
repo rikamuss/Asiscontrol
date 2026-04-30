@@ -24,14 +24,16 @@ export default function Reportes() {
   const [chartData, setChartData] = useState<any[]>([]);
 
   const fetchRecords = async () => {
-    const fromDate = startOfDay(new Date(`${dateFrom}T00:00:00`));
-    const toDateExclusive = startOfDay(addDays(new Date(`${dateTo}T00:00:00`), 1));
+    // Interpretar dateFrom/dateTo como días LOCALES del usuario.
+    // new Date("YYYY-MM-DDT00:00:00") usa la zona local del navegador.
+    const fromLocal = new Date(`${dateFrom}T00:00:00`);
+    const toLocalExclusive = addDays(new Date(`${dateTo}T00:00:00`), 1);
 
     const { data } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, estado, foto_url, empleados(nombre, cedula, cargo)")
-      .gte("fecha_hora", fromDate.toISOString())
-      .lt("fecha_hora", toDateExclusive.toISOString())
+      .gte("fecha_hora", fromLocal.toISOString())
+      .lt("fecha_hora", toLocalExclusive.toISOString())
       .order("fecha_hora", { ascending: false });
 
     if (data) {
