@@ -52,19 +52,35 @@ export default function RecentAttendance() {
   const [rows, setRows] = useState<EmpleadoRow[]>([]);
 
   const fetchRecords = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Día local del usuario (00:00 a 24:00). Ampliamos el rango ±1 día en la consulta
+    // para incluir registros cuyo timestamp UTC cae en otro día calendario,
+    // y luego filtramos en JS por día local del registro.
+    const startLocal = new Date();
+    startLocal.setHours(0, 0, 0, 0);
+    const endLocal = new Date(startLocal);
+    endLocal.setDate(endLocal.getDate() + 1);
+
+    const startExpanded = new Date(startLocal);
+    startExpanded.setDate(startExpanded.getDate() - 1);
+    const endExpanded = new Date(endLocal);
+    endExpanded.setDate(endExpanded.getDate() + 1);
 
     const { data } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleado_id, empleados(nombre, cargo)")
-      .gte("fecha_hora", today.toISOString())
+      .gte("fecha_hora", startExpanded.toISOString())
+      .lt("fecha_hora", endExpanded.toISOString())
       .order("fecha_hora", { ascending: true });
 
     if (!data) return;
 
+    const todayRecords = (data as unknown as AttendanceRecord[]).filter((r) => {
+      const d = new Date(r.fecha_hora);
+      return d >= startLocal && d < endLocal;
+    });
+
     const map = new Map<string, EmpleadoRow>();
-    for (const r of data as unknown as AttendanceRecord[]) {
+    for (const r of todayRecords) {
       if (!r.empleado_id) continue;
       let row = map.get(r.empleado_id);
       if (!row) {
