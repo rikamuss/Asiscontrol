@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -17,27 +19,37 @@ interface AttendanceRecord {
   jornada: string | null;
   minutos_desviacion: number | null;
   foto_url: string | null;
+  empleado_id: string;
   empleados: { nombre: string; cargo: string } | null;
 }
 
-const estadoBadge: Record<string, string> = {
-  presente: "bg-success/10 text-success border-success/20",
-  salida: "bg-primary/10 text-primary border-primary/20",
-  retardo: "bg-warning/10 text-warning border-warning/20",
-  salida_temprana: "bg-warning/10 text-warning border-warning/20",
-  falta: "bg-destructive/10 text-destructive border-destructive/20",
+type SlotKey = "manana_entrada" | "manana_salida" | "tarde_entrada" | "tarde_salida";
+
+interface EmpleadoRow {
+  empleado_id: string;
+  nombre: string;
+  cargo: string;
+  slots: Record<SlotKey, AttendanceRecord | null>;
+}
+
+const slotLabels: Record<SlotKey, string> = {
+  manana_entrada: "Entrada AM",
+  manana_salida: "Salida AM",
+  tarde_entrada: "Entrada PM",
+  tarde_salida: "Salida PM",
 };
 
-const estadoLabel: Record<string, string> = {
-  presente: "Entrada",
-  salida: "Salida",
-  retardo: "Retardo",
-  salida_temprana: "Salida temprana",
-  falta: "Falta",
-};
+function getSlot(r: AttendanceRecord): SlotKey | null {
+  if (!r.jornada || !r.tipo) return null;
+  if (r.jornada === "manana" && r.tipo === "entrada") return "manana_entrada";
+  if (r.jornada === "manana" && r.tipo === "salida") return "manana_salida";
+  if (r.jornada === "tarde" && r.tipo === "entrada") return "tarde_entrada";
+  if (r.jornada === "tarde" && r.tipo === "salida") return "tarde_salida";
+  return null;
+}
 
 export default function RecentAttendance() {
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [rows, setRows] = useState<EmpleadoRow[]>([]);
 
   const fetchRecords = async () => {
     const today = new Date();
@@ -45,12 +57,30 @@ export default function RecentAttendance() {
 
     const { data } = await supabase
       .from("asistencias")
-      .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleados(nombre, cargo)")
+      .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleado_id, empleados(nombre, cargo)")
       .gte("fecha_hora", today.toISOString())
-      .order("fecha_hora", { ascending: false })
-      .limit(20);
+      .order("fecha_hora", { ascending: true });
 
-    if (data) setRecords(data as unknown as AttendanceRecord[]);
+    if (!data) return;
+
+    const map = new Map<string, EmpleadoRow>();
+    for (const r of data as unknown as AttendanceRecord[]) {
+      if (!r.empleado_id) continue;
+      let row = map.get(r.empleado_id);
+      if (!row) {
+        row = {
+          empleado_id: r.empleado_id,
+          nombre: r.empleados?.nombre || "Desconocido",
+          cargo: r.empleados?.cargo || "",
+          slots: { manana_entrada: null, manana_salida: null, tarde_entrada: null, tarde_salida: null },
+        };
+        map.set(r.empleado_id, row);
+      }
+      const slot = getSlot(r);
+      if (slot && !row.slots[slot]) row.slots[slot] = r;
+    }
+
+    setRows(Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
   };
 
   const handleDelete = async (id: string) => {
@@ -65,77 +95,95 @@ export default function RecentAttendance() {
 
   useEffect(() => {
     fetchRecords();
-
     const channel = supabase
       .channel("realtime-asistencias")
-      .on("postgres_changes", { event: "*", schema: "public", table: "asistencias" }, () => {
-        fetchRecords();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "asistencias" }, () => fetchRecords())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const renderCell = (rec: AttendanceRecord | null) => {
+    if (!rec) return <span className="text-muted-foreground text-xs">—</span>;
+    const desv = rec.minutos_desviacion || 0;
+    const isLate = desv > 0;
+    return (
+      <div className="flex items-center gap-2">
+        {rec.foto_url ? (
+          <img src={rec.foto_url} alt="" className="w-9 h-9 rounded-md object-cover border border-border" />
+        ) : (
+          <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground">
+            ?
+          </div>
+        )}
+        <div className="flex flex-col min-w-0">
+          <span className="text-xs font-medium text-foreground">
+            {format(new Date(rec.fecha_hora), "HH:mm")}
+          </span>
+          {isLate && (
+            <span className="text-[10px] text-warning">{desv}m desv.</span>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1 mt-0.5">
+                <Trash2 size={10} />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle>
+                <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleDelete(rec.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Eliminar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="glass-card overflow-hidden">
       <div className="px-6 py-4 border-b border-border">
         <h3 className="font-semibold text-foreground">Registros de Hoy</h3>
-        <p className="text-xs text-muted-foreground">Actualización en tiempo real</p>
+        <p className="text-xs text-muted-foreground">4 marcajes por día — actualización en tiempo real</p>
       </div>
-      <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
-        {records.length === 0 && (
+      <div className="max-h-[500px] overflow-auto">
+        {rows.length === 0 ? (
           <p className="text-muted-foreground text-sm text-center py-8">Sin registros hoy</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Empleado</TableHead>
+                <TableHead>{slotLabels.manana_entrada}</TableHead>
+                <TableHead>{slotLabels.manana_salida}</TableHead>
+                <TableHead>{slotLabels.tarde_entrada}</TableHead>
+                <TableHead>{slotLabels.tarde_salida}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.empleado_id}>
+                  <TableCell>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">{row.nombre}</span>
+                      <span className="text-xs text-muted-foreground">{row.cargo}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{renderCell(row.slots.manana_entrada)}</TableCell>
+                  <TableCell>{renderCell(row.slots.manana_salida)}</TableCell>
+                  <TableCell>{renderCell(row.slots.tarde_entrada)}</TableCell>
+                  <TableCell>{renderCell(row.slots.tarde_salida)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-        {records.map((r) => (
-          <div key={r.id} className="flex items-center gap-4 px-6 py-3 hover:bg-muted/30 transition-colors">
-            {r.foto_url ? (
-              <img src={r.foto_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-            ) : (
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground text-xs font-bold">
-                {r.empleados?.nombre?.charAt(0) || "?"}
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{r.empleados?.nombre || "Desconocido"}</p>
-              <p className="text-xs text-muted-foreground">{r.empleados?.cargo}</p>
-            </div>
-            <div className="text-right space-y-1 flex items-center gap-2">
-              <div>
-                <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium border ${estadoBadge[r.estado] || "bg-muted text-muted-foreground border-border"}`}>
-                  {estadoLabel[r.estado] || r.estado}
-                  {r.minutos_desviacion ? ` · ${r.minutos_desviacion}m` : ""}
-                </span>
-                <p className="text-xs text-muted-foreground">
-                  {r.jornada === "manana" ? "Mañana" : r.jornada === "tarde" ? "Tarde" : ""} · {format(new Date(r.fecha_hora), "HH:mm", { locale: es })}
-                </p>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                    title="Eliminar registro"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Eliminar registro?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Se eliminará el registro de asistencia de {r.empleados?.nombre || "este empleado"}. Esta acción no se puede deshacer.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleDelete(r.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Eliminar
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );
