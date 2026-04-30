@@ -24,19 +24,28 @@ export default function Reportes() {
   const [chartData, setChartData] = useState<any[]>([]);
 
   const fetchRecords = async () => {
-    const fromDate = startOfDay(new Date(`${dateFrom}T00:00:00`));
-    const toDateExclusive = startOfDay(addDays(new Date(`${dateTo}T00:00:00`), 1));
+    // Traemos un rango ampliado en ±1 día para cubrir registros cuyo timestamp UTC
+    // cae en otro día calendario que el día local del usuario.
+    const fromLocal = new Date(`${dateFrom}T00:00:00`);
+    const toLocalExclusive = addDays(new Date(`${dateTo}T00:00:00`), 1);
+    const fromExpanded = subDays(fromLocal, 1);
+    const toExpanded = addDays(toLocalExclusive, 1);
 
     const { data } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, estado, foto_url, empleados(nombre, cedula, cargo)")
-      .gte("fecha_hora", fromDate.toISOString())
-      .lt("fecha_hora", toDateExclusive.toISOString())
+      .gte("fecha_hora", fromExpanded.toISOString())
+      .lt("fecha_hora", toExpanded.toISOString())
       .order("fecha_hora", { ascending: false });
 
     if (data) {
-      setRecords(data as unknown as ReportRecord[]);
-      buildChartData(data as unknown as ReportRecord[]);
+      // Filtramos por día LOCAL del registro, no por su timestamp UTC.
+      const filtered = (data as unknown as ReportRecord[]).filter((r) => {
+        const d = new Date(r.fecha_hora);
+        return d >= fromLocal && d < toLocalExclusive;
+      });
+      setRecords(filtered);
+      buildChartData(filtered);
     }
   };
 
