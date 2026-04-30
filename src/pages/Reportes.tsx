@@ -50,17 +50,27 @@ export default function Reportes() {
   };
 
   const buildChartData = (data: ReportRecord[]) => {
-    const grouped: Record<string, { presente: number; retardo: number; falta: number }> = {};
+    // Cuenta cada pase de tarjeta agrupado por día y categoría.
+    // Categorías: A tiempo (presente + salida), Retardo, Salida temprana, Falta.
+    const grouped: Record<string, { aTiempo: number; retardo: number; salidaTemprana: number; falta: number }> = {};
 
     data.forEach((r) => {
       const day = format(new Date(r.fecha_hora), "dd/MM");
-      if (!grouped[day]) grouped[day] = { presente: 0, retardo: 0, falta: 0 };
-      if (r.estado === "presente") grouped[day].presente++;
+      if (!grouped[day]) grouped[day] = { aTiempo: 0, retardo: 0, salidaTemprana: 0, falta: 0 };
+      if (r.estado === "presente" || r.estado === "salida") grouped[day].aTiempo++;
       else if (r.estado === "retardo") grouped[day].retardo++;
-      else grouped[day].falta++;
+      else if (r.estado === "salida_temprana") grouped[day].salidaTemprana++;
+      else if (r.estado === "falta") grouped[day].falta++;
     });
 
-    setChartData(Object.entries(grouped).map(([dia, vals]) => ({ dia, ...vals })).reverse());
+    // Ordenar por fecha ascendente (dd/MM)
+    const entries = Object.entries(grouped).sort((a, b) => {
+      const [da, ma] = a[0].split("/").map(Number);
+      const [db, mb] = b[0].split("/").map(Number);
+      return ma === mb ? da - db : ma - mb;
+    });
+
+    setChartData(entries.map(([dia, vals]) => ({ dia, ...vals })));
   };
 
   useEffect(() => { fetchRecords(); }, [dateFrom, dateTo]);
