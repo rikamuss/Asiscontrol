@@ -10,23 +10,37 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const startLocal = new Date();
+      startLocal.setHours(0, 0, 0, 0);
+      const endLocal = new Date(startLocal);
+      endLocal.setDate(endLocal.getDate() + 1);
+      const startExpanded = new Date(startLocal); startExpanded.setDate(startExpanded.getDate() - 1);
+      const endExpanded = new Date(endLocal); endExpanded.setDate(endExpanded.getDate() + 1);
 
       const [{ count: total }, { data: asistencias }] = await Promise.all([
         supabase.from("empleados").select("*", { count: "exact", head: true }),
-        supabase.from("asistencias").select("estado").gte("fecha_hora", today.toISOString()),
+        supabase
+          .from("asistencias")
+          .select("estado, tipo, empleado_id, fecha_hora")
+          .gte("fecha_hora", startExpanded.toISOString())
+          .lt("fecha_hora", endExpanded.toISOString()),
       ]);
 
-      const presentes = asistencias?.filter((a) => a.estado === "presente").length || 0;
-      const retardos = asistencias?.filter((a) => a.estado === "retardo").length || 0;
-
-      setStats({
-        total: total || 0,
-        presentes,
-        retardos,
-        faltas: (total || 0) - presentes - retardos,
+      const today = (asistencias || []).filter((a) => {
+        const d = new Date(a.fecha_hora);
+        return d >= startLocal && d < endLocal;
       });
+
+      const presentes = today.filter((a) => a.estado === "presente").length;
+      const retardos = today.filter((a) => a.estado === "retardo").length;
+
+      // Faltas = empleados sin ninguna entrada registrada hoy
+      const empleadosConEntrada = new Set(
+        today.filter((a) => a.tipo === "entrada").map((a) => a.empleado_id),
+      );
+      const faltas = Math.max(0, (total || 0) - empleadosConEntrada.size);
+
+      setStats({ total: total || 0, presentes, retardos, faltas });
     };
 
     fetchStats();
