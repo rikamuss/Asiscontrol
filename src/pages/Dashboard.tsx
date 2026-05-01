@@ -34,11 +34,10 @@ export default function Dashboard() {
       const presentes = today.filter((a) => a.estado === "presente").length;
       const retardos = today.filter((a) => a.estado === "retardo").length;
 
-      // Faltas = empleados sin ninguna entrada registrada hoy
-      const empleadosConEntrada = new Set(
-        today.filter((a) => a.tipo === "entrada").map((a) => a.empleado_id),
-      );
-      const faltas = Math.max(0, (total || 0) - empleadosConEntrada.size);
+      // Faltas registradas hoy (las inserta el cron al cierre de cada jornada).
+      // Antes del cierre de la jornada matutina (12:30) no se muestra ninguna falta,
+      // porque el día aún no ha cerrado.
+      const faltas = today.filter((a) => a.estado === "falta").length;
 
       setStats({ total: total || 0, presentes, retardos, faltas });
     };
