@@ -14,14 +14,54 @@ interface Empleado {
   cargo: string;
 }
 
+// Horarios oficiales (lunes a sábado): mañana 7-12, tarde 13-18
+const HORARIOS: Record<string, Record<string, { h: number; m: number }>> = {
+  manana: { entrada: { h: 7, m: 0 }, salida: { h: 12, m: 0 } },
+  tarde: { entrada: { h: 13, m: 0 }, salida: { h: 18, m: 0 } },
+};
+
+function calcularDesviacionYEstado(
+  fecha: string,
+  hora: string,
+  jornada: "manana" | "tarde",
+  tipo: "entrada" | "salida",
+) {
+  const ref = HORARIOS[jornada][tipo];
+  const refDate = new Date(`${fecha}T${String(ref.h).padStart(2, "0")}:${String(ref.m).padStart(2, "0")}:00`);
+  const actual = new Date(`${fecha}T${hora}:00`);
+  const diffMin = Math.round((actual.getTime() - refDate.getTime()) / 60000);
+
+  let estado = "presente";
+  let minutos_desviacion = 0;
+
+  if (tipo === "entrada") {
+    if (diffMin > 0) {
+      estado = "retardo";
+      minutos_desviacion = diffMin;
+    } else {
+      estado = "presente";
+      minutos_desviacion = 0;
+    }
+  } else {
+    // salida
+    if (diffMin < 0) {
+      estado = "salida_temprana";
+      minutos_desviacion = Math.abs(diffMin);
+    } else {
+      estado = "salida";
+      minutos_desviacion = 0;
+    }
+  }
+
+  return { estado, minutos_desviacion };
+}
+
 export default function ManualAttendance() {
   const [open, setOpen] = useState(false);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [empleadoId, setEmpleadoId] = useState("");
   const [tipo, setTipo] = useState<"entrada" | "salida">("entrada");
   const [jornada, setJornada] = useState<"manana" | "tarde">("manana");
-  const [estado, setEstado] = useState("presente");
-  const [minutosDesv, setMinutosDesv] = useState(0);
   const [hora, setHora] = useState("");
   const [fecha, setFecha] = useState("");
   const [saving, setSaving] = useState(false);
@@ -31,7 +71,6 @@ export default function ManualAttendance() {
       supabase.from("empleados").select("id, nombre, cargo").order("nombre").then(({ data }) => {
         if (data) setEmpleados(data);
       });
-      // Default a HOY y hora actual EN HORA LOCAL del navegador
       const now = new Date();
       const yyyy = now.getFullYear();
       const mm = String(now.getMonth() + 1).padStart(2, "0");
@@ -47,19 +86,21 @@ export default function ManualAttendance() {
       return;
     }
 
+    // Validar día (no domingo)
+    const fechaDate = new Date(`${fecha}T00:00:00`);
+    if (fechaDate.getDay() === 0) {
+      toast({ title: "Día no laboral", description: "Los registros son de lunes a sábado.", variant: "destructive" });
+      return;
+    }
+
     setSaving(true);
 
-    // Construir fecha/hora local del registro
     const fechaHoraDate = new Date(`${fecha}T${hora}:00`);
     const fechaHora = fechaHoraDate.toISOString();
 
-    // Rango del día local seleccionado (00:00 a 24:00 local)
     const startLocal = new Date(`${fecha}T00:00:00`);
     const endLocal = new Date(startLocal);
     endLocal.setDate(endLocal.getDate() + 1);
-
-    // Verificar duplicados: mismo empleado, jornada y tipo dentro del mismo día local.
-    // Traemos un rango ampliado y filtramos por día local en JS para evitar desfases UTC.
     const startExpanded = new Date(startLocal); startExpanded.setDate(startExpanded.getDate() - 1);
     const endExpanded = new Date(endLocal); endExpanded.setDate(endExpanded.getDate() + 1);
 
@@ -87,12 +128,14 @@ export default function ManualAttendance() {
       return;
     }
 
+    const { estado, minutos_desviacion } = calcularDesviacionYEstado(fecha, hora, jornada, tipo);
+
     const { error } = await supabase.from("asistencias").insert({
       empleado_id: empleadoId,
       estado,
       tipo,
       jornada,
-      minutos_desviacion: minutosDesv,
+      minutos_desviacion,
       fecha_hora: fechaHora,
     });
 
@@ -103,10 +146,12 @@ export default function ManualAttendance() {
       return;
     }
 
-    toast({ title: "Asistencia registrada manualmente" });
+    toast({
+      title: "Asistencia registrada",
+      description: `${estado.replace("_", " ")}${minutos_desviacion ? ` (${minutos_desviacion}m)` : ""}`,
+    });
     setOpen(false);
     setEmpleadoId("");
-    setEstado("presente");
   };
 
   return (
@@ -158,25 +203,6 @@ export default function ManualAttendance() {
               </Select>
             </div>
           </div>
-          <div>
-            <Label className="text-muted-foreground">Estado</Label>
-            <Select value={estado} onValueChange={setEstado}>
-              <SelectTrigger className="bg-muted border-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="presente">Entrada a tiempo</SelectItem>
-                <SelectItem value="retardo">Retardo</SelectItem>
-                <SelectItem value="salida">Salida a tiempo</SelectItem>
-                <SelectItem value="salida_temprana">Salida temprana</SelectItem>
-                <SelectItem value="falta">Falta</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-muted-foreground">Minutos de desviación</Label>
-            <Input type="number" min={0} value={minutosDesv} onChange={(e) => setMinutosDesv(Number(e.target.value))} className="bg-muted border-border" />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-muted-foreground">Fecha</Label>
@@ -187,6 +213,9 @@ export default function ManualAttendance() {
               <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className="bg-muted border-border" />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            El estado y los minutos de desviación se calculan automáticamente según el horario L–S (mañana 7–12, tarde 13–18).
+          </p>
           <Button onClick={handleSave} disabled={saving} className="w-full gradient-primary text-primary-foreground border-0">
             {saving ? "Guardando..." : "Registrar Asistencia"}
           </Button>
