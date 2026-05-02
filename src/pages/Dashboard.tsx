@@ -61,7 +61,10 @@ export default function Dashboard() {
       setStats({ total: total || 0, presentes, retardos, faltas });
     };
 
-    fetchStats();
+    (async () => {
+      await ensureFaltasJornada();
+      await fetchStats();
+    })();
 
     const channel = supabase
       .channel("dashboard-realtime")
