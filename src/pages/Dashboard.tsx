@@ -9,6 +9,25 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, presentes: 0, retardos: 0, faltas: 0 });
 
   useEffect(() => {
+    const ensureFaltasJornada = async () => {
+      // Si la jornada matutina (>=12:31) o vespertina (>=18:31) ya cerró,
+      // pedir a la edge function que registre las faltas que falten.
+      const now = new Date();
+      const jornadas: ("manana" | "tarde")[] = [];
+      const cierreManana = new Date(now); cierreManana.setHours(12, 31, 0, 0);
+      const cierreTarde = new Date(now); cierreTarde.setHours(18, 31, 0, 0);
+      if (now >= cierreManana) jornadas.push("manana");
+      if (now >= cierreTarde) jornadas.push("tarde");
+
+      for (const jornada of jornadas) {
+        try {
+          await supabase.functions.invoke("marcar-faltas-jornada", { body: { jornada } });
+        } catch (e) {
+          console.error("Error marcando faltas", jornada, e);
+        }
+      }
+    };
+
     const fetchStats = async () => {
       const startLocal = new Date();
       startLocal.setHours(0, 0, 0, 0);
