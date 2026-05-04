@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, FileBarChart, Menu, X, Radio } from "lucide-react";
+import { LayoutDashboard, Users, FileBarChart, Menu, X, Radio, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -11,6 +12,7 @@ const navItems = [
 export default function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
 
   return (
     <>
@@ -55,11 +57,23 @@ export default function AppSidebar() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-2 px-4 py-2">
+        <div className="p-4 border-t border-border space-y-3">
+          <div className="flex items-center gap-2 px-4">
             <div className="w-2 h-2 rounded-full bg-success animate-pulse-slow" />
             <span className="text-xs text-muted-foreground">ESP32 Conectado</span>
           </div>
+          {user && (
+            <div className="px-4 space-y-2">
+              <p className="text-xs text-muted-foreground truncate" title={user.email ?? ""}>{user.email}</p>
+              <button
+                onClick={() => signOut()}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <LogOut size={16} />
+                Cerrar sesión
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>
