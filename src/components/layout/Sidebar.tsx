@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, FileBarChart, Menu, X, Radio, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, FileBarChart, Menu, X, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
@@ -30,9 +30,7 @@ export default function AppSidebar() {
         }`}
       >
         <div className="flex items-center gap-3 px-6 py-6 border-b border-border">
-          <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-            <Radio className="text-primary-foreground" size={20} />
-          </div>
+          <img src="/favicon.png" alt="AsistControl" className="w-10 h-10 rounded-xl" />
           <div>
             <h1 className="font-bold text-foreground text-lg">AsistControl</h1>
             <p className="text-xs text-muted-foreground">ESP32 + Cloud</p>

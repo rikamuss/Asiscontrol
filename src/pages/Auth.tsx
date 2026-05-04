@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Radio, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export default function Auth() {
   const { session, loading } = useAuth();
@@ -37,9 +37,7 @@ export default function Auth() {
     <main className="min-h-screen grid place-items-center bg-background p-6">
       <Card className="w-full max-w-md p-8 space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-            <Radio className="text-primary-foreground" size={22} />
-          </div>
+          <img src="/favicon.png" alt="AsistControl" className="w-12 h-12 rounded-xl" />
           <div>
             <h1 className="text-2xl font-bold">AsistControl</h1>
             <p className="text-sm text-muted-foreground">Acceso de administrador</p>
