@@ -30,7 +30,7 @@ export default function AppSidebar() {
         }`}
       >
         <div className="flex items-center gap-3 px-6 py-6 border-b border-border">
-          <img src="/favicon.png" alt="AsistControl" className="w-16 h-16 rounded-xl" />
+          <img src="/favicon.png" alt="AsistControl" className="w-20 h-20 rounded-xl" />
           <div>
             <h1 className="font-bold text-foreground text-lg">AsistControl</h1>
             <p className="text-xs text-muted-foreground">ESP32 + Cloud</p>
