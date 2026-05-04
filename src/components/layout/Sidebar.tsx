@@ -29,7 +29,7 @@ export default function AppSidebar() {
           collapsed ? "w-64 translate-x-0" : "-translate-x-full md:translate-x-0 md:w-64"
         }`}
       >
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-border">
+        <div className="flex items-center gap-1 px-6 py-6 border-b border-border">
           <img src="/favicon.png" alt="AsistControl" className="w-20 h-20 rounded-xl" />
           <div>
             <h1 className="font-bold text-foreground text-lg">AsistControl</h1>
