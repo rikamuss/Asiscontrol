@@ -78,12 +78,11 @@ Deno.serve(async (req) => {
     const inicioDia = new Date(ahora); inicioDia.setHours(0, 0, 0, 0);
     const { data: pasesHoy } = await supabase
       .from("asistencias")
-      .select("id, fecha_hora, tipo, jornada")
+      .select("id, fecha_hora, tipo, jornada, estado")
       .eq("empleado_id", empleado.id)
       .gte("fecha_hora", inicioDia.toISOString())
       .order("fecha_hora", { ascending: false });
 
-    const ultimoCualquiera = pasesHoy?.[0];
     const pasesJornada = (pasesHoy || []).filter((p) => p.jornada === jornada);
     // Faltas auto-generadas por el cron en esta jornada (a reemplazar si llega un pase tardío)
     const faltaPendiente = pasesJornada.find((p: any) => p.estado === "falta" && p.tipo === "entrada");
