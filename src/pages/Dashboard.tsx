@@ -68,7 +68,8 @@ export default function Dashboard() {
 
     const channel = supabase
       .channel("dashboard-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias" }, () => fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "asistencias" }, () => fetchStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "empleados" }, () => fetchStats())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
