@@ -37,7 +37,14 @@ export default function Empleados() {
     if (data) setEmpleados(data);
   };
 
-  useEffect(() => { fetchEmpleados(); }, []);
+  useEffect(() => {
+    fetchEmpleados();
+    const channel = supabase
+      .channel("empleados-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "empleados" }, () => fetchEmpleados())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const stopCamera = () => {
     if (streamRef.current) {
