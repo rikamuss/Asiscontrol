@@ -23,11 +23,15 @@ Deno.serve(async (req) => {
     let body: { jornada?: "manana" | "tarde"; fecha?: string } = {};
     try { body = await req.json(); } catch { /* sin body */ }
 
+    // Zona horaria fija Colombia (UTC-5). Edge functions corren en UTC.
+    const TZ_OFFSET_HOURS = -5;
     const ahora = new Date();
-    // Detectar jornada automáticamente si no se especifica
+    const ahoraLocal = new Date(Date.now() + TZ_OFFSET_HOURS * 3600 * 1000);
+
+    // Detectar jornada automáticamente si no se especifica (en hora LOCAL Colombia)
     let jornada: "manana" | "tarde" | null = body.jornada ?? null;
     if (!jornada) {
-      const h = ahora.getHours();
+      const h = ahoraLocal.getUTCHours();
       if (h >= 12 && h < 18) jornada = "manana";
       else if (h >= 18 || h < 6) jornada = "tarde";
     }
@@ -37,17 +41,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Día objetivo (local del servidor)
-    const target = body.fecha ? new Date(`${body.fecha}T12:00:00`) : ahora;
-    const diaSemana = target.getDay();
+    // Día objetivo en hora LOCAL Colombia
+    const targetLocal = body.fecha
+      ? new Date(`${body.fecha}T12:00:00Z`)
+      : ahoraLocal;
+    const diaSemana = targetLocal.getUTCDay();
     if (diaSemana === 0) {
       return new Response(JSON.stringify({ message: "Domingo: no se generan faltas", insertadas: 0 }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const inicioDia = new Date(target); inicioDia.setHours(0, 0, 0, 0);
-    const finDia = new Date(inicioDia); finDia.setDate(finDia.getDate() + 1);
+    // Inicio/fin del día LOCAL como instantes UTC
+    const inicioDiaLocal = new Date(targetLocal); inicioDiaLocal.setUTCHours(0, 0, 0, 0);
+    const finDiaLocal = new Date(inicioDiaLocal); finDiaLocal.setUTCDate(finDiaLocal.getUTCDate() + 1);
+    const inicioDiaUtc = new Date(inicioDiaLocal.getTime() - TZ_OFFSET_HOURS * 3600 * 1000);
+    const finDiaUtc = new Date(finDiaLocal.getTime() - TZ_OFFSET_HOURS * 3600 * 1000);
 
     // Empleados totales
     const { data: empleados } = await supabase.from("empleados").select("id, nombre");
@@ -56,8 +65,8 @@ Deno.serve(async (req) => {
     const { data: pases } = await supabase
       .from("asistencias")
       .select("empleado_id, jornada, tipo, estado")
-      .gte("fecha_hora", inicioDia.toISOString())
-      .lt("fecha_hora", finDia.toISOString());
+      .gte("fecha_hora", inicioDiaUtc.toISOString())
+      .lt("fecha_hora", finDiaUtc.toISOString());
 
     const conEntrada = new Set(
       (pases || [])
@@ -78,12 +87,12 @@ Deno.serve(async (req) => {
         tipo: "entrada",
         jornada,
         minutos_desviacion: 0,
-        // fecha_hora: marcamos al cierre de jornada
+        // fecha_hora: marcamos al cierre de jornada (hora LOCAL convertida a UTC)
         fecha_hora: (() => {
-          const d = new Date(inicioDia);
-          if (jornada === "manana") d.setHours(12, 30, 0, 0);
-          else d.setHours(18, 30, 0, 0);
-          return d.toISOString();
+          const d = new Date(inicioDiaLocal);
+          if (jornada === "manana") d.setUTCHours(12, 30, 0, 0);
+          else d.setUTCHours(18, 30, 0, 0);
+          return new Date(d.getTime() - TZ_OFFSET_HOURS * 3600 * 1000).toISOString();
         })(),
       }));
 
