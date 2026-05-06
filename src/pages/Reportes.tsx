@@ -23,6 +23,7 @@ export default function Reportes() {
   const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 7), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [chartData, setChartData] = useState<any[]>([]);
+  const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   const fetchRecords = async () => {
     // Traemos un rango ampliado en ±1 día para cubrir registros cuyo timestamp UTC
