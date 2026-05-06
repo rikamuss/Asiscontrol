@@ -172,44 +172,58 @@ export default function RecentAttendance() {
   };
 
   return (
-    <div className="glass-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-border">
-        <h3 className="font-semibold text-foreground">Registros de Hoy</h3>
-        <p className="text-xs text-muted-foreground">4 marcajes por día — actualización en tiempo real</p>
-      </div>
-      <div className="max-h-[500px] overflow-auto">
-        {rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-8">Sin registros hoy</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Empleado</TableHead>
-                <TableHead>{slotLabels.manana_entrada}</TableHead>
-                <TableHead>{slotLabels.manana_salida}</TableHead>
-                <TableHead>{slotLabels.tarde_entrada}</TableHead>
-                <TableHead>{slotLabels.tarde_salida}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.empleado_id}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground">{row.nombre}</span>
-                      <span className="text-xs text-muted-foreground">{row.cargo}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{renderCell(row.slots.manana_entrada)}</TableCell>
-                  <TableCell>{renderCell(row.slots.manana_salida)}</TableCell>
-                  <TableCell>{renderCell(row.slots.tarde_entrada)}</TableCell>
-                  <TableCell>{renderCell(row.slots.tarde_salida)}</TableCell>
+    <>
+      <div className="glass-card overflow-hidden">
+        <div className="px-6 py-4 border-b border-border">
+          <h3 className="font-semibold text-foreground">Registros de Hoy</h3>
+          <p className="text-xs text-muted-foreground">4 marcajes por día — actualización en tiempo real</p>
+        </div>
+        <div className="max-h-[500px] overflow-auto">
+          {rows.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8">Sin registros hoy</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>{slotLabels.manana_entrada}</TableHead>
+                  <TableHead>{slotLabels.manana_salida}</TableHead>
+                  <TableHead>{slotLabels.tarde_entrada}</TableHead>
+                  <TableHead>{slotLabels.tarde_salida}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.empleado_id}>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-foreground">{row.nombre}</span>
+                        <span className="text-xs text-muted-foreground">{row.cargo}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{renderCell(row.slots.manana_entrada)}</TableCell>
+                    <TableCell>{renderCell(row.slots.manana_salida)}</TableCell>
+                    <TableCell>{renderCell(row.slots.tarde_entrada)}</TableCell>
+                    <TableCell>{renderCell(row.slots.tarde_salida)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
       </div>
-    </div>
+
+      <Dialog open={!!zoomFoto} onOpenChange={(open) => !open && setZoomFoto(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-background">
+          {zoomFoto && (
+            <img
+              src={zoomFoto}
+              alt="Foto de asistencia ampliada"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-md"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
