@@ -15,8 +15,22 @@ const JORNADAS = {
 
 const COOLDOWN_MIN = 30;
 
+// Zona horaria fija: Colombia (UTC-5). Las edge functions corren en UTC,
+// así que convertimos a hora local antes de detectar jornada/día.
+const TZ_OFFSET_HOURS = -5;
+
+function nowLocal(): Date {
+  // Devuelve un Date "desplazado" cuyos getHours()/getDate() reflejan la hora local Colombia.
+  return new Date(Date.now() + TZ_OFFSET_HOURS * 3600 * 1000);
+}
+
 function minutosDelDia(d: Date) {
-  return d.getHours() * 60 + d.getMinutes();
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+// Convierte un Date local Colombia (creado con nowLocal o derivado) a su instante UTC real
+function localToUtcISO(d: Date): string {
+  return new Date(d.getTime() - TZ_OFFSET_HOURS * 3600 * 1000).toISOString();
 }
 
 function detectarJornada(min: number): "manana" | "tarde" | null {
@@ -51,10 +65,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const ahora = new Date();
+    const ahora = new Date();           // instante real (UTC)
+    const ahoraLocal = nowLocal();      // mismo instante "desplazado" a hora local Colombia
 
-    // Validar día de la semana: solo lunes (1) a sábado (6). Domingo = 0.
-    const diaSemana = ahora.getDay();
+    // Validar día de la semana en hora LOCAL Colombia. Domingo = 0.
+    const diaSemana = ahoraLocal.getUTCDay();
     if (diaSemana === 0) {
       return new Response(JSON.stringify({
         error: "Día no laborable",
@@ -62,7 +77,7 @@ Deno.serve(async (req) => {
       }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const minAhora = minutosDelDia(ahora);
+    const minAhora = minutosDelDia(ahoraLocal);
     const jornada = detectarJornada(minAhora);
 
     if (!jornada) {
@@ -74,13 +89,14 @@ Deno.serve(async (req) => {
 
     const cfg = JORNADAS[jornada];
 
-    // Buscar último pase del empleado HOY en esta jornada
-    const inicioDia = new Date(ahora); inicioDia.setHours(0, 0, 0, 0);
+    // Inicio del día LOCAL Colombia, expresado como instante UTC para la consulta
+    const inicioDiaLocal = new Date(ahoraLocal); inicioDiaLocal.setUTCHours(0, 0, 0, 0);
+    const inicioDiaUtcISO = localToUtcISO(inicioDiaLocal);
     const { data: pasesHoy } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, tipo, jornada, estado")
       .eq("empleado_id", empleado.id)
-      .gte("fecha_hora", inicioDia.toISOString())
+      .gte("fecha_hora", inicioDiaUtcISO)
       .order("fecha_hora", { ascending: false });
 
     const pasesJornada = (pasesHoy || []).filter((p) => p.jornada === jornada);
