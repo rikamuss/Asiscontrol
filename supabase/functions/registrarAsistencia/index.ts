@@ -65,10 +65,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const ahora = new Date();
+    const ahora = new Date();           // instante real (UTC)
+    const ahoraLocal = nowLocal();      // mismo instante "desplazado" a hora local Colombia
 
-    // Validar día de la semana: solo lunes (1) a sábado (6). Domingo = 0.
-    const diaSemana = ahora.getDay();
+    // Validar día de la semana en hora LOCAL Colombia. Domingo = 0.
+    const diaSemana = ahoraLocal.getUTCDay();
     if (diaSemana === 0) {
       return new Response(JSON.stringify({
         error: "Día no laborable",
@@ -76,7 +77,7 @@ Deno.serve(async (req) => {
       }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const minAhora = minutosDelDia(ahora);
+    const minAhora = minutosDelDia(ahoraLocal);
     const jornada = detectarJornada(minAhora);
 
     if (!jornada) {
@@ -88,13 +89,14 @@ Deno.serve(async (req) => {
 
     const cfg = JORNADAS[jornada];
 
-    // Buscar último pase del empleado HOY en esta jornada
-    const inicioDia = new Date(ahora); inicioDia.setHours(0, 0, 0, 0);
+    // Inicio del día LOCAL Colombia, expresado como instante UTC para la consulta
+    const inicioDiaLocal = new Date(ahoraLocal); inicioDiaLocal.setUTCHours(0, 0, 0, 0);
+    const inicioDiaUtcISO = localToUtcISO(inicioDiaLocal);
     const { data: pasesHoy } = await supabase
       .from("asistencias")
       .select("id, fecha_hora, tipo, jornada, estado")
       .eq("empleado_id", empleado.id)
-      .gte("fecha_hora", inicioDia.toISOString())
+      .gte("fecha_hora", inicioDiaUtcISO)
       .order("fecha_hora", { ascending: false });
 
     const pasesJornada = (pasesHoy || []).filter((p) => p.jornada === jornada);
