@@ -51,6 +51,7 @@ function getSlot(r: AttendanceRecord): SlotKey | null {
 
 export default function RecentAttendance() {
   const [rows, setRows] = useState<EmpleadoRow[]>([]);
+  const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   const fetchRecords = async () => {
     // Día local del usuario (00:00 a 24:00). Ampliamos el rango ±1 día en la consulta
