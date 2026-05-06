@@ -231,6 +231,18 @@ export default function Reportes() {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!zoomFoto} onOpenChange={(open) => !open && setZoomFoto(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-background">
+          {zoomFoto && (
+            <img
+              src={zoomFoto}
+              alt="Foto de asistencia ampliada"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-md"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
