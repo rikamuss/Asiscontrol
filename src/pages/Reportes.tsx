@@ -212,7 +212,14 @@ export default function Reportes() {
                   </td>
                   <td className="px-6 py-3">
                     {r.foto_url ? (
-                      <img src={r.foto_url} alt="" className="w-8 h-8 rounded object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setZoomFoto(r.foto_url)}
+                        className="block focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        title="Ver foto"
+                      >
+                        <img src={r.foto_url} alt="" className="w-8 h-8 rounded object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
+                      </button>
                     ) : <span className="text-muted-foreground">—</span>}
                   </td>
                 </tr>
