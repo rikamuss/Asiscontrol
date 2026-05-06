@@ -15,8 +15,22 @@ const JORNADAS = {
 
 const COOLDOWN_MIN = 30;
 
+// Zona horaria fija: Colombia (UTC-5). Las edge functions corren en UTC,
+// así que convertimos a hora local antes de detectar jornada/día.
+const TZ_OFFSET_HOURS = -5;
+
+function nowLocal(): Date {
+  // Devuelve un Date "desplazado" cuyos getHours()/getDate() reflejan la hora local Colombia.
+  return new Date(Date.now() + TZ_OFFSET_HOURS * 3600 * 1000);
+}
+
 function minutosDelDia(d: Date) {
-  return d.getHours() * 60 + d.getMinutes();
+  return d.getUTCHours() * 60 + d.getUTCMinutes();
+}
+
+// Convierte un Date local Colombia (creado con nowLocal o derivado) a su instante UTC real
+function localToUtcISO(d: Date): string {
+  return new Date(d.getTime() - TZ_OFFSET_HOURS * 3600 * 1000).toISOString();
 }
 
 function detectarJornada(min: number): "manana" | "tarde" | null {
