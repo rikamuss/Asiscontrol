@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       message: `Faltas marcadas para jornada ${jornada}`,
-      jornada, fecha: inicioDia.toISOString().slice(0, 10), insertadas,
+      jornada, fecha: inicioDiaLocal.toISOString().slice(0, 10), insertadas,
     }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: "Error interno", detalle: String(e) }), {
