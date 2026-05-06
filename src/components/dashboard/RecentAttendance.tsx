@@ -127,7 +127,14 @@ export default function RecentAttendance() {
     return (
       <div className="flex items-center gap-2">
         {rec.foto_url ? (
-          <img src={rec.foto_url} alt="" className="w-9 h-9 rounded-md object-cover border border-border" />
+          <button
+            type="button"
+            onClick={() => setZoomFoto(rec.foto_url)}
+            className="block focus:outline-none focus:ring-2 focus:ring-primary rounded-md"
+            title="Ver foto"
+          >
+            <img src={rec.foto_url} alt="" className="w-9 h-9 rounded-md object-cover border border-border hover:opacity-80 transition-opacity cursor-zoom-in" />
+          </button>
         ) : (
           <div className="w-9 h-9 rounded-md bg-muted flex items-center justify-center text-xs text-muted-foreground">
             ?
