@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Download, Search } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { addDays, format, subDays, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -22,6 +23,7 @@ export default function Reportes() {
   const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 7), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const [chartData, setChartData] = useState<any[]>([]);
+  const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   const fetchRecords = async () => {
     // Traemos un rango ampliado en ±1 día para cubrir registros cuyo timestamp UTC
@@ -210,7 +212,14 @@ export default function Reportes() {
                   </td>
                   <td className="px-6 py-3">
                     {r.foto_url ? (
-                      <img src={r.foto_url} alt="" className="w-8 h-8 rounded object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setZoomFoto(r.foto_url)}
+                        className="block focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                        title="Ver foto"
+                      >
+                        <img src={r.foto_url} alt="" className="w-8 h-8 rounded object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
+                      </button>
                     ) : <span className="text-muted-foreground">—</span>}
                   </td>
                 </tr>
@@ -222,6 +231,18 @@ export default function Reportes() {
           </table>
         </div>
       </div>
+
+      <Dialog open={!!zoomFoto} onOpenChange={(open) => !open && setZoomFoto(null)}>
+        <DialogContent className="max-w-3xl p-2 bg-background">
+          {zoomFoto && (
+            <img
+              src={zoomFoto}
+              alt="Foto de asistencia ampliada"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-md"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

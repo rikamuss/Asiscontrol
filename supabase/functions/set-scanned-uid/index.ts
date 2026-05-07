@@ -15,17 +15,23 @@ async function adjuntarFotoAUltimaAsistencia(supabase: any, uid: string, foto_ur
 
   if (!emp?.id) return null;
 
-  const desde = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  // Solo registros REALES (no faltas auto-generadas) y muy recientes (2 min)
+  // para garantizar que la foto corresponde al pase que acabamos de procesar.
+  const desde = new Date(Date.now() - 2 * 60 * 1000).toISOString();
   const { data: ult } = await supabase
     .from("asistencias")
-    .select("id, foto_url")
+    .select("id, foto_url, estado")
     .eq("empleado_id", emp.id)
+    .neq("estado", "falta")
     .gte("created_at", desde)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!ult?.id) return null;
+  if (!ult?.id) {
+    console.log("No hay asistencia real reciente para adjuntar foto, uid:", uid);
+    return null;
+  }
 
   // No sobreescribir foto si ya existe (la foto del registro es inmutable)
   if (ult.foto_url) {
