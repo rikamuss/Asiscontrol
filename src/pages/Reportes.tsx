@@ -169,7 +169,7 @@ export default function Reportes() {
               <Tooltip
                 contentStyle={{ backgroundColor: "hsl(222 47% 9%)", border: "1px solid hsl(217 33% 20%)", borderRadius: "8px", color: "hsl(210 40% 96%)" }}
                 labelFormatter={(label) => `Día ${label}`}
-                cursor={{ fill: "hsla(217, 74%, 53%, 0.20))" }}
+                cursor={{ fill: "hsla(210, 100%, 70%, 0.15)" }}
               />
               <Legend wrapperStyle={{ fontSize: "12px" }} />
               <Bar stackId="pases" dataKey="aTiempo" fill="hsl(142 76% 45%)" name="A tiempo" radius={[0, 0, 0, 0]} />
