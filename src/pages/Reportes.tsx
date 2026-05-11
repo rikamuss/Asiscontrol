@@ -3,10 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { Download, Search } from "lucide-react";
+import { Download, Search, Trash2 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { addDays, format, subDays, startOfDay } from "date-fns";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { addDays, format, subDays } from "date-fns";
 import { es } from "date-fns/locale";
+import { toast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 
 interface ReportRecord {
@@ -18,20 +23,18 @@ interface ReportRecord {
 }
 
 export default function Reportes() {
-  const [records, setRecords] = useState<ReportRecord[]>([]);
+  const [records, setRecords]       = useState<ReportRecord[]>([]);
   const [searchName, setSearchName] = useState("");
-  const [dateFrom, setDateFrom] = useState(format(subDays(new Date(), 7), "yyyy-MM-dd"));
-  const [dateTo, setDateTo] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [zoomFoto, setZoomFoto] = useState<string | null>(null);
+  const [dateFrom, setDateFrom]     = useState(format(subDays(new Date(), 7), "yyyy-MM-dd"));
+  const [dateTo, setDateTo]         = useState(format(new Date(), "yyyy-MM-dd"));
+  const [chartData, setChartData]   = useState<any[]>([]);
+  const [zoomFoto, setZoomFoto]     = useState<string | null>(null);
 
   const fetchRecords = async () => {
-    // Traemos un rango ampliado en ±1 día para cubrir registros cuyo timestamp UTC
-    // cae en otro día calendario que el día local del usuario.
-    const fromLocal = new Date(`${dateFrom}T00:00:00`);
+    const fromLocal        = new Date(`${dateFrom}T00:00:00`);
     const toLocalExclusive = addDays(new Date(`${dateTo}T00:00:00`), 1);
-    const fromExpanded = subDays(fromLocal, 1);
-    const toExpanded = addDays(toLocalExclusive, 1);
+    const fromExpanded     = subDays(fromLocal, 1);
+    const toExpanded       = addDays(toLocalExclusive, 1);
 
     const { data } = await supabase
       .from("asistencias")
@@ -41,7 +44,6 @@ export default function Reportes() {
       .order("fecha_hora", { ascending: false });
 
     if (data) {
-      // Filtramos por día LOCAL del registro, no por su timestamp UTC.
       const filtered = (data as unknown as ReportRecord[]).filter((r) => {
         const d = new Date(r.fecha_hora);
         return d >= fromLocal && d < toLocalExclusive;
@@ -52,42 +54,51 @@ export default function Reportes() {
   };
 
   const buildChartData = (data: ReportRecord[]) => {
-    // Cuenta cada pase de tarjeta agrupado por día y categoría.
-    // Categorías: A tiempo (presente + salida), Retardo, Salida temprana, Falta.
     const grouped: Record<string, { aTiempo: number; retardo: number; salidaTemprana: number; falta: number }> = {};
-
     data.forEach((r) => {
       const day = format(new Date(r.fecha_hora), "dd/MM");
       if (!grouped[day]) grouped[day] = { aTiempo: 0, retardo: 0, salidaTemprana: 0, falta: 0 };
       if (r.estado === "presente" || r.estado === "salida") grouped[day].aTiempo++;
-      else if (r.estado === "retardo") grouped[day].retardo++;
+      else if (r.estado === "retardo")         grouped[day].retardo++;
       else if (r.estado === "salida_temprana") grouped[day].salidaTemprana++;
-      else if (r.estado === "falta") grouped[day].falta++;
+      else if (r.estado === "falta")           grouped[day].falta++;
     });
-
-    // Ordenar por fecha ascendente (dd/MM)
     const entries = Object.entries(grouped).sort((a, b) => {
       const [da, ma] = a[0].split("/").map(Number);
       const [db, mb] = b[0].split("/").map(Number);
       return ma === mb ? da - db : ma - mb;
     });
-
     setChartData(entries.map(([dia, vals]) => ({ dia, ...vals })));
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("asistencias").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    // Actualizar lista local sin refetch
+    setRecords((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      buildChartData(next);
+      return next;
+    });
+    toast({ title: "Registro eliminado" });
   };
 
   useEffect(() => { fetchRecords(); }, [dateFrom, dateTo]);
 
-  const filtered = records.filter((r) =>
-    !searchName || r.empleados?.nombre.toLowerCase().includes(searchName.toLowerCase())
+  const filtered = records.filter(
+    (r) => !searchName || r.empleados?.nombre.toLowerCase().includes(searchName.toLowerCase())
   );
 
   const exportXLSX = () => {
     const rows = filtered.map((r) => ({
-      Nombre: r.empleados?.nombre || "",
-      Cédula: r.empleados?.cedula || "",
-      Cargo: r.empleados?.cargo || "",
+      Nombre:         r.empleados?.nombre || "",
+      Cédula:         r.empleados?.cedula || "",
+      Cargo:          r.empleados?.cargo  || "",
       "Fecha y Hora": format(new Date(r.fecha_hora), "dd/MM/yyyy HH:mm", { locale: es }),
-      Estado: r.estado,
+      Estado:         r.estado,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -95,8 +106,20 @@ export default function Reportes() {
     XLSX.writeFile(wb, `reporte_asistencias_${dateFrom}_${dateTo}.xlsx`);
   };
 
+  const estadoBadge = (estado: string) => {
+    const map: Record<string, string> = {
+      presente:        "bg-success/10 text-success",
+      salida:          "bg-success/10 text-success",
+      retardo:         "bg-warning/10 text-warning",
+      salida_temprana: "bg-warning/10 text-warning",
+      falta:           "bg-destructive/10 text-destructive",
+    };
+    return map[estado] ?? "bg-muted/40 text-muted-foreground";
+  };
+
   return (
     <div className="space-y-6 pt-12 md:pt-0">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Reportes</h2>
@@ -107,7 +130,7 @@ export default function Reportes() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filtros */}
       <div className="glass-card p-4 flex flex-wrap gap-4 items-end">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">Desde</label>
@@ -128,17 +151,17 @@ export default function Reportes() {
 
       {/* Tarjetas resumen */}
       {filtered.length > 0 && (() => {
-        const total = filtered.length;
-        const aTiempo = filtered.filter((r) => r.estado === "presente" || r.estado === "salida").length;
-        const retardos = filtered.filter((r) => r.estado === "retardo").length;
+        const total       = filtered.length;
+        const aTiempo     = filtered.filter((r) => r.estado === "presente" || r.estado === "salida").length;
+        const retardos    = filtered.filter((r) => r.estado === "retardo").length;
         const salidasTemp = filtered.filter((r) => r.estado === "salida_temprana").length;
-        const faltas = filtered.filter((r) => r.estado === "falta").length;
+        const faltas      = filtered.filter((r) => r.estado === "falta").length;
         const cards = [
-          { label: "Total de pases", value: total, color: "text-foreground", bg: "bg-muted/40" },
-          { label: "A tiempo", value: aTiempo, color: "text-success", bg: "bg-success/10" },
-          { label: "Retardos", value: retardos, color: "text-warning", bg: "bg-warning/10" },
-          { label: "Salidas tempranas", value: salidasTemp, color: "text-warning", bg: "bg-warning/10" },
-          { label: "Faltas", value: faltas, color: "text-destructive", bg: "bg-destructive/10" },
+          { label: "Total de pases",    value: total,       color: "text-foreground",  bg: "bg-muted/40" },
+          { label: "A tiempo",          value: aTiempo,     color: "text-success",     bg: "bg-success/10" },
+          { label: "Retardos",          value: retardos,    color: "text-warning",     bg: "bg-warning/10" },
+          { label: "Salidas tempranas", value: salidasTemp, color: "text-warning",     bg: "bg-warning/10" },
+          { label: "Faltas",            value: faltas,      color: "text-destructive", bg: "bg-destructive/10" },
         ];
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -152,7 +175,7 @@ export default function Reportes() {
         );
       })()}
 
-      {/* Chart */}
+      {/* Gráfico */}
       {chartData.length > 0 && (
         <div className="glass-card p-6">
           <div className="mb-4">
@@ -172,16 +195,16 @@ export default function Reportes() {
                 cursor={{ fill: "hsla(210, 100%, 70%, 0.15)" }}
               />
               <Legend wrapperStyle={{ fontSize: "12px" }} />
-              <Bar stackId="pases" dataKey="aTiempo" fill="hsl(142 76% 45%)" name="A tiempo" radius={[0, 0, 0, 0]} />
-              <Bar stackId="pases" dataKey="retardo" fill="hsl(38 92% 50%)" name="Retardos" radius={[0, 0, 0, 0]} />
-              <Bar stackId="pases" dataKey="salidaTemprana" fill="hsl(25 95% 55%)" name="Salidas tempranas" radius={[0, 0, 0, 0]} />
-              <Bar stackId="pases" dataKey="falta" fill="hsl(0 84% 60%)" name="Faltas" radius={[4, 4, 0, 0]} />
+              <Bar stackId="pases" dataKey="aTiempo"        fill="hsl(142 76% 45%)" name="A tiempo"          radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="retardo"        fill="hsl(38 92% 50%)"  name="Retardos"          radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="salidaTemprana" fill="hsl(25 95% 55%)"  name="Salidas tempranas" radius={[0, 0, 0, 0]} />
+              <Bar stackId="pases" dataKey="falta"          fill="hsl(0 84% 60%)"   name="Faltas"            radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Table */}
+      {/* Tabla */}
       <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -192,6 +215,7 @@ export default function Reportes() {
                 <th className="text-left px-6 py-3 text-muted-foreground font-medium">Fecha/Hora</th>
                 <th className="text-left px-6 py-3 text-muted-foreground font-medium">Estado</th>
                 <th className="text-left px-6 py-3 text-muted-foreground font-medium">Foto</th>
+                <th className="px-4 py-3 w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -203,12 +227,8 @@ export default function Reportes() {
                     {format(new Date(r.fecha_hora), "dd/MM/yyyy HH:mm", { locale: es })}
                   </td>
                   <td className="px-6 py-3">
-                    <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                      r.estado === "presente" ? "bg-success/10 text-success" :
-                      r.estado === "retardo" ? "bg-warning/10 text-warning" :
-                      "bg-destructive/10 text-destructive"
-                    }`}>
-                      {r.estado}
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${estadoBadge(r.estado)}`}>
+                      {r.estado.replace("_", " ")}
                     </span>
                   </td>
                   <td className="px-6 py-3">
@@ -221,12 +241,49 @@ export default function Reportes() {
                       >
                         <img src={r.foto_url} alt="" className="w-8 h-8 rounded object-cover hover:opacity-80 transition-opacity cursor-zoom-in" />
                       </button>
-                    ) : <span className="text-muted-foreground">—</span>}
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+
+                  {/* Botón eliminar fila */}
+                  <td className="px-4 py-3 text-right">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          title="Eliminar este registro"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se eliminará el registro de <strong>{r.empleados?.nombre}</strong> del{" "}
+                            {format(new Date(r.fecha_hora), "dd/MM/yyyy HH:mm", { locale: es })}.
+                            Esta acción no se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDelete(r.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-8 text-muted-foreground">Sin registros</td></tr>
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-muted-foreground">Sin registros</td>
+                </tr>
               )}
             </tbody>
           </table>

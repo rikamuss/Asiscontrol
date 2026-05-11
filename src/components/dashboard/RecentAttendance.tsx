@@ -31,32 +31,31 @@ interface EmpleadoRow {
   nombre: string;
   cargo: string;
   slots: Record<SlotKey, AttendanceRecord | null>;
+  allIds: string[];
+  tieneFalta: boolean;
 }
 
 const slotLabels: Record<SlotKey, string> = {
   manana_entrada: "Entrada AM",
-  manana_salida: "Salida AM",
-  tarde_entrada: "Entrada PM",
-  tarde_salida: "Salida PM",
+  manana_salida:  "Salida AM",
+  tarde_entrada:  "Entrada PM",
+  tarde_salida:   "Salida PM",
 };
 
 function getSlot(r: AttendanceRecord): SlotKey | null {
   if (!r.jornada || !r.tipo) return null;
   if (r.jornada === "manana" && r.tipo === "entrada") return "manana_entrada";
-  if (r.jornada === "manana" && r.tipo === "salida") return "manana_salida";
-  if (r.jornada === "tarde" && r.tipo === "entrada") return "tarde_entrada";
-  if (r.jornada === "tarde" && r.tipo === "salida") return "tarde_salida";
+  if (r.jornada === "manana" && r.tipo === "salida")  return "manana_salida";
+  if (r.jornada === "tarde"  && r.tipo === "entrada") return "tarde_entrada";
+  if (r.jornada === "tarde"  && r.tipo === "salida")  return "tarde_salida";
   return null;
 }
 
 export default function RecentAttendance() {
-  const [rows, setRows] = useState<EmpleadoRow[]>([]);
+  const [rows, setRows]         = useState<EmpleadoRow[]>([]);
   const [zoomFoto, setZoomFoto] = useState<string | null>(null);
 
   const fetchRecords = async () => {
-    // Día local del usuario (00:00 a 24:00). Ampliamos el rango ±1 día en la consulta
-    // para incluir registros cuyo timestamp UTC cae en otro día calendario,
-    // y luego filtramos en JS por día local del registro.
     const startLocal = new Date();
     startLocal.setHours(0, 0, 0, 0);
     const endLocal = new Date(startLocal);
@@ -67,47 +66,79 @@ export default function RecentAttendance() {
     const endExpanded = new Date(endLocal);
     endExpanded.setDate(endExpanded.getDate() + 1);
 
-    const { data } = await supabase
-      .from("asistencias")
-      .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleado_id, empleados(nombre, cargo)")
-      .gte("fecha_hora", startExpanded.toISOString())
-      .lt("fecha_hora", endExpanded.toISOString())
-      .order("fecha_hora", { ascending: true });
+    // Traemos empleados y asistencias en paralelo
+    const [{ data: empData }, { data: asistData }] = await Promise.all([
+      supabase.from("empleados").select("id, nombre, cargo").order("nombre"),
+      supabase
+        .from("asistencias")
+        .select("id, fecha_hora, estado, tipo, jornada, minutos_desviacion, foto_url, empleado_id, empleados(nombre, cargo)")
+        .gte("fecha_hora", startExpanded.toISOString())
+        .lt("fecha_hora", endExpanded.toISOString())
+        .order("fecha_hora", { ascending: true }),
+    ]);
 
-    if (!data) return;
-
-    const todayRecords = (data as unknown as AttendanceRecord[]).filter((r) => {
+    const todayRecords = ((asistData || []) as unknown as AttendanceRecord[]).filter((r) => {
       const d = new Date(r.fecha_hora);
       return d >= startLocal && d < endLocal;
     });
 
+    // Mapa base con TODOS los empleados (para poder mostrar faltas)
     const map = new Map<string, EmpleadoRow>();
+    for (const emp of (empData || [])) {
+      map.set(emp.id, {
+        empleado_id: emp.id,
+        nombre:      emp.nombre,
+        cargo:       emp.cargo,
+        slots:       { manana_entrada: null, manana_salida: null, tarde_entrada: null, tarde_salida: null },
+        allIds:      [],
+        tieneFalta:  false,
+      });
+    }
+
+    // Rellenar slots con los registros de hoy
     for (const r of todayRecords) {
       if (!r.empleado_id) continue;
-      let row = map.get(r.empleado_id);
-      if (!row) {
-        row = {
-          empleado_id: r.empleado_id,
-          nombre: r.empleados?.nombre || "Desconocido",
-          cargo: r.empleados?.cargo || "",
-          slots: { manana_entrada: null, manana_salida: null, tarde_entrada: null, tarde_salida: null },
-        };
-        map.set(r.empleado_id, row);
-      }
+      const row = map.get(r.empleado_id);
+      if (!row) continue;
+
+      row.allIds.push(r.id);
+      if (r.estado === "falta") row.tieneFalta = true;
+
       const slot = getSlot(r);
       if (slot && !row.slots[slot]) row.slots[slot] = r;
     }
 
-    setRows(Array.from(map.values()).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+    // Mostrar solo empleados con al menos un registro hoy (incluye faltas)
+    const result = Array.from(map.values())
+      .filter((row) => row.allIds.length > 0)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    setRows(result);
   };
 
-  const handleDelete = async (id: string) => {
+  // Eliminar un único marcaje (botón dentro de la celda)
+  const handleDeleteOne = async (id: string) => {
     const { error } = await supabase.from("asistencias").delete().eq("id", id);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
       return;
     }
-    toast({ title: "Registro eliminado" });
+    toast({ title: "Marcaje eliminado" });
+    fetchRecords();
+  };
+
+  // Eliminar TODOS los registros del empleado en el día (botón de la fila)
+  const handleDeleteRow = async (row: EmpleadoRow) => {
+    if (!row.allIds.length) return;
+    const { error } = await supabase.from("asistencias").delete().in("id", row.allIds);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Registro completo eliminado",
+      description: `${row.allIds.length} marcaje(s) de ${row.nombre} eliminados`,
+    });
     fetchRecords();
   };
 
@@ -122,8 +153,41 @@ export default function RecentAttendance() {
 
   const renderCell = (rec: AttendanceRecord | null) => {
     if (!rec) return <span className="text-muted-foreground text-xs">—</span>;
+
+    // Celda especial para falta
+    if (rec.estado === "falta") {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-md bg-destructive/10 flex items-center justify-center text-xs text-destructive font-bold">
+            F
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="text-xs font-medium text-destructive">Falta</span>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1 mt-0.5">
+                  <Trash2 size={10} />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar este registro de falta?</AlertDialogTitle>
+                  <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDeleteOne(rec.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      );
+    }
+
     const desv = rec.minutos_desviacion || 0;
-    const isLate = desv > 0;
     return (
       <div className="flex items-center gap-2">
         {rec.foto_url ? (
@@ -144,7 +208,7 @@ export default function RecentAttendance() {
           <span className="text-xs font-medium text-foreground">
             {format(new Date(rec.fecha_hora), "HH:mm")}
           </span>
-          {isLate && (
+          {desv > 0 && (
             <span className="text-[10px] text-warning">{desv}m desv.</span>
           )}
           <AlertDialog>
@@ -155,12 +219,12 @@ export default function RecentAttendance() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>¿Eliminar este registro?</AlertDialogTitle>
+                <AlertDialogTitle>¿Eliminar este marcaje?</AlertDialogTitle>
                 <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => handleDelete(rec.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogAction onClick={() => handleDeleteOne(rec.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Eliminar
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -190,11 +254,15 @@ export default function RecentAttendance() {
                   <TableHead>{slotLabels.manana_salida}</TableHead>
                   <TableHead>{slotLabels.tarde_entrada}</TableHead>
                   <TableHead>{slotLabels.tarde_salida}</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
-                  <TableRow key={row.empleado_id}>
+                  <TableRow
+                    key={row.empleado_id}
+                    className={row.tieneFalta ? "bg-destructive/5" : undefined}
+                  >
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-foreground">{row.nombre}</span>
@@ -205,6 +273,39 @@ export default function RecentAttendance() {
                     <TableCell>{renderCell(row.slots.manana_salida)}</TableCell>
                     <TableCell>{renderCell(row.slots.tarde_entrada)}</TableCell>
                     <TableCell>{renderCell(row.slots.tarde_salida)}</TableCell>
+
+                    {/* Botón eliminar fila completa */}
+                    <TableCell className="text-right pr-4">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            title="Eliminar todos los registros de hoy de este empleado"
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar registro completo?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Se eliminarán <strong>todos los marcajes de hoy</strong> de{" "}
+                              <strong>{row.nombre}</strong> ({row.allIds.length} registro(s)).
+                              Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteRow(row)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Eliminar todo
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
