@@ -32,7 +32,6 @@ interface EmpleadoRow {
   cargo: string;
   slots: Record<SlotKey, AttendanceRecord | null>;
   allIds: string[];
-  tieneFalta: boolean;
 }
 
 const slotLabels: Record<SlotKey, string> = {
@@ -91,7 +90,6 @@ export default function RecentAttendance() {
         cargo:       emp.cargo,
         slots:       { manana_entrada: null, manana_salida: null, tarde_entrada: null, tarde_salida: null },
         allIds:      [],
-        tieneFalta:  false,
       });
     }
 
@@ -102,7 +100,6 @@ export default function RecentAttendance() {
       if (!row) continue;
 
       row.allIds.push(r.id);
-      if (r.estado === "falta") row.tieneFalta = true;
 
       const slot = getSlot(r);
       if (slot && !row.slots[slot]) row.slots[slot] = r;
@@ -151,8 +148,35 @@ export default function RecentAttendance() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const renderCell = (rec: AttendanceRecord | null) => {
-    if (!rec) return <span className="text-muted-foreground text-xs">—</span>;
+  const renderCell = (rec: AttendanceRecord | null, row: EmpleadoRow, slot: SlotKey) => {
+    // Determinar si esta jornada tiene una falta (entrada)
+    const isJornadaMañana = slot.startsWith("manana");
+    const isJornadaTarde = slot.startsWith("tarde");
+    const entradaSlot = slot.includes("entrada") ? slot : null;
+    const salidaSlot = slot.includes("salida") ? slot : null;
+
+    const checkEntrada = entradaSlot || (isJornadaMañana ? "manana_entrada" : "tarde_entrada");
+    const entradaRec = row.slots[checkEntrada as SlotKey];
+
+    // Una jornada tiene falta si la entrada es falta o si no hay entrada
+    const jornadaTieneFalta = entradaRec && entradaRec.estado === "falta";
+
+    if (!rec) {
+      // Celda vacía - mostrar rojo si la jornada tiene falta
+      if (jornadaTieneFalta) {
+        return (
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-md bg-destructive/10 flex items-center justify-center text-xs text-destructive font-bold">
+              F
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-medium text-destructive">Falta</span>
+            </div>
+          </div>
+        );
+      }
+      return <span className="text-muted-foreground text-xs">—</span>;
+    }
 
     // Celda especial para falta
     if (rec.estado === "falta") {
@@ -261,7 +285,6 @@ export default function RecentAttendance() {
                 {rows.map((row) => (
                   <TableRow
                     key={row.empleado_id}
-                    className={row.tieneFalta ? "bg-destructive/5" : undefined}
                   >
                     <TableCell>
                       <div className="flex flex-col">
@@ -269,10 +292,10 @@ export default function RecentAttendance() {
                         <span className="text-xs text-muted-foreground">{row.cargo}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{renderCell(row.slots.manana_entrada)}</TableCell>
-                    <TableCell>{renderCell(row.slots.manana_salida)}</TableCell>
-                    <TableCell>{renderCell(row.slots.tarde_entrada)}</TableCell>
-                    <TableCell>{renderCell(row.slots.tarde_salida)}</TableCell>
+                    <TableCell>{renderCell(row.slots.manana_entrada, row, "manana_entrada")}</TableCell>
+                    <TableCell>{renderCell(row.slots.manana_salida, row, "manana_salida")}</TableCell>
+                    <TableCell>{renderCell(row.slots.tarde_entrada, row, "tarde_entrada")}</TableCell>
+                    <TableCell>{renderCell(row.slots.tarde_salida, row, "tarde_salida")}</TableCell>
 
                     {/* Botón eliminar fila completa */}
                     <TableCell className="text-right pr-4">
