@@ -6,6 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2, CreditCard, Search, Camera, Upload, X, Cpu } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Empleado {
   id: string;
@@ -15,6 +19,7 @@ interface Empleado {
   telefono: string | null;
   rfid_key: string | null;
   foto_url: string | null;
+  activo: boolean;
 }
 
 export default function Empleados() {
@@ -33,7 +38,7 @@ export default function Empleados() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchEmpleados = async () => {
-    const { data } = await supabase.from("empleados").select("*").order("nombre");
+    const { data } = await supabase.from("empleados").select("*").eq("activo", true).order("nombre");
     if (data) setEmpleados(data);
   };
 
@@ -164,10 +169,10 @@ export default function Empleados() {
     stopCamera();
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("empleados").delete().eq("id", id);
+  const handleDelete = async (id: string, nombre: string) => {
+    const { error } = await supabase.from("empleados").update({ activo: false }).eq("id", id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Empleado eliminado" });
+    toast({ title: "Empleado desactivado", description: `${nombre} fue removido del sistema` });
     fetchEmpleados();
   };
 
@@ -363,9 +368,30 @@ export default function Empleados() {
                 <button onClick={() => handleEdit(emp)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                   <Edit size={14} />
                 </button>
-                <button onClick={() => handleDelete(emp.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Desactivar a {emp.nombre}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        El empleado dejará de aparecer en el sistema pero su historial de asistencias se conservará intacto. Esta acción se puede revertir desde la base de datos.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(emp.id, emp.nombre)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Desactivar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
             <div className="space-y-1 text-sm">
