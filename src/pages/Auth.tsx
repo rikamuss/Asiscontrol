@@ -16,7 +16,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { document.title = "Iniciar sesión · AsistControl"; }, []);
+  useEffect(() => { document.title = "Iniciar sesión · AsysControl"; }, []);
 
   if (loading) {
     return <div className="min-h-screen grid place-items-center"><Loader2 className="animate-spin" /></div>;
@@ -37,9 +37,9 @@ export default function Auth() {
     <main className="min-h-screen grid place-items-center bg-background p-6">
       <Card className="w-full max-w-md p-8 space-y-6">
         <div className="flex flex-col items-center gap-3 text-center">
-          <img src="/favicon.png" alt="AsistControl" className="w-24 h-24 rounded-xl" />
+          <img src="/favicon.png" alt="AsysControl" className="w-24 h-24 rounded-xl" />
           <div>
-            <h1 className="text-2xl font-bold">AsistControl</h1>
+            <h1 className="text-2xl font-bold">AsysControl</h1>
             <p className="text-sm text-muted-foreground">Acceso de administrador</p>
           </div>
         </div>
