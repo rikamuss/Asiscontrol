@@ -33,7 +33,7 @@ export default function AppSidebar() {
           <img src="/favicon.png" alt="AsisControl" className="w-20 h-20 rounded-xl" />
           <div>
             <h1 className="font-bold text-foreground text-lg">AsisControl</h1>
-            <p className="text-xs text-muted-foreground">Cloud-Native IoT</p>
+            <p className="text-xs text-muted-foreground">ESP32 + Cloud</p>
           </div>
         </div>
 
