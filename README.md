@@ -96,7 +96,3 @@ bunx playwright test
 
 ✅ Proyecto terminado y funcional.
 
-## 👤 Autor
-
-Desarrollado por [**rikamuss**](https://github.com/rikamuss)
-
